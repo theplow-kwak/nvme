@@ -1,6 +1,5 @@
 use super::nvme_device::InboxDriver;
 use crate::dev::disk::{get_physical_drv_number_from_logical_drv, ioctl, open};
-use once_cell::sync::Lazy;
 use sscanf;
 use std::sync::Mutex;
 use std::{

@@ -1,5 +1,5 @@
 use crate::dev::disk::open;
-use crate::dev::nvme_define::{NVME_FEATURES::*, NVME_IDENTIFY_CNS_CODES::*, NVME_LOG_PAGES::*, *};
+use crate::dev::nvme_define::*;
 use std::mem::offset_of;
 use std::{ffi::c_void, io, mem::size_of, ptr::null_mut};
 use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};

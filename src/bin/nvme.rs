@@ -1,11 +1,11 @@
-use clap::parser::Values;
 use clap::{Parser, Subcommand};
 use nvme::dev::dev_utils::{NvmeController, NvmeControllerList, PhysicalDisk};
-use nvme::dev::nvme_commands::{
-    print_nvme_identify_controller_data, print_nvme_identify_namespace_data,
-};
 use nvme::dev::nvme_define::{
     NVME_CDW10_GET_FEATURES, NVME_CDW10_IDENTIFY, NVME_IDENTIFY_CNS_CODES,
+};
+use nvme::dev::nvme_print::{
+    print_nvme_get_feature, print_nvme_identify_controller_data,
+    print_nvme_identify_namespace_data, print_nvme_ns_list, print_nvme_set_feature,
 };
 
 #[derive(Parser, Default)]
@@ -144,10 +144,7 @@ impl<'a> CliManager<'a> {
                         })
                         .filter(|&value| value != 0)
                         .collect();
-
-                    for ns in &ns_list {
-                        println!("{:?}", ns);
-                    }
+                    print_nvme_ns_list(&ns_list);
                 }
                 Some(Commands::GetLog { lid }) => {
                     let lid = if lid.starts_with("0x") {
@@ -163,9 +160,11 @@ impl<'a> CliManager<'a> {
                     cdw10.set_FID(*fid);
                     cdw10.set_SEL(*sel);
                     let info = device.nvme_getfeature(cdw10.into(), 0).unwrap();
+                    print_nvme_get_feature(*fid, info);
                 }
                 Some(Commands::SetFeature { fid, value }) => {
                     let info = device.nvme_setfeature(*fid, *value).unwrap();
+                    print_nvme_set_feature(*fid, info);
                 }
                 _ => {}
             }
@@ -177,9 +176,10 @@ impl<'a> CliManager<'a> {
             let device = controller.get_driver();
             match &self.args.command {
                 Some(Commands::ListNs { all }) => {
-                    device.nvme_identify_ns_list(0, *all).unwrap();
+                    let ns_list = device.nvme_identify_ns_list(0, *all).unwrap();
+                    print_nvme_ns_list(&ns_list);
                 }
-                Some(Commands::Create { size }) => {
+                Some(Commands::Create { size: _size }) => {
                     controller.rescan();
                 }
                 Some(Commands::Delete {}) => {

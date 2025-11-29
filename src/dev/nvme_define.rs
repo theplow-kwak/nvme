@@ -717,43 +717,43 @@ pub struct NVM_RESERVATION_CAPABILITIES {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct NVME_IDENTIFY_NAMESPACE_DATA {
-    pub NSZE: u64,             // byte 0:7        M - Namespace Size (NSZE)
-    pub NCAP: u64,             // byte 8:15       M - Namespace Capacity (NCAP)
-    pub NUSE: u64,            // byte 16:23      M - Namespace Utilization (NUSE)
-    pub NSFEAT: NamespaceFeatures,            // byte 24         M - Namespace Features (NSFEAT)
-    pub NLBAF: u8,             // byte 25         M - Number of LBA Formats (NLBAF)
-    pub FLBAS: FormattedLbaSize,             // byte 26         M - Formatted LBA Size (FLBAS)
-    pub MC: MetadataCapabilities,  // byte 27         M - Metadata Capabilities (MC)
+    pub NSZE: u64,                              // byte 0:7        M - Namespace Size (NSZE)
+    pub NCAP: u64,                              // byte 8:15       M - Namespace Capacity (NCAP)
+    pub NUSE: u64,                              // byte 16:23      M - Namespace Utilization (NUSE)
+    pub NSFEAT: NamespaceFeatures,              // byte 24         M - Namespace Features (NSFEAT)
+    pub NLBAF: u8,                              // byte 25         M - Number of LBA Formats (NLBAF)
+    pub FLBAS: FormattedLbaSize,                // byte 26         M - Formatted LBA Size (FLBAS)
+    pub MC: MetadataCapabilities,               // byte 27         M - Metadata Capabilities (MC)
     pub DPC: DataProtectionCapabilities, // byte 28         M - End-to-end Data Protection Capabilities (DPC)
     pub DPS: DataProtectionTypeSettings, // byte 29         M - End-to-end Data Protection Type Settings (DPS)
     pub NMIC: NamespaceMultiPathIoCapabilities, // byte 30         O - Namespace Multi-path I/O and Namespace Sharing Capabilities (NMIC)
-    pub RESCAP: NvmReservationCapabilities,         // byte 31         O - Reservation Capabilities (RESCAP)
-    pub FPI: FormatProgressIndicator,           // byte 32         O - Format Progress Indicator (FPI)
+    pub RESCAP: NvmReservationCapabilities, // byte 31         O - Reservation Capabilities (RESCAP)
+    pub FPI: FormatProgressIndicator,       // byte 32         O - Format Progress Indicator (FPI)
     pub DLFEAT: DeallocatedLogicalBlockFeatures, // byte 33
-    pub NAWUN: u16,          // byte 34:35      O - Namespace Atomic Write Unit Normal (NAWUN)
-    pub NAWUPF: u16,         // byte 36:37      O - Namespace Atomic Write Unit Power Fail (NAWUPF)
-    pub NACWU: u16,          // byte 38:39      O - Namespace Atomic Compare & Write Unit (NACWU)
-    pub NABSN: u16,          // byte 40:41      O - Namespace Atomic Boundary Size Normal (NABSN)
-    pub NABO: u16,           // byte 42:43      O - Namespace Atomic Boundary Offset (NABO)
-    pub NABSPF: u16,         // byte 44:45      O - Namespace Atomic Boundary Size Power Fail (NABSPF)
-    pub NOIOB: u16,          // byte 46:47      O - Namespace Optimal IO Boundary (NOIOB)
-    pub NVMCAP: [u8; 16],    // byte 48:63      O - NVM Capacity (NVMCAP)
-    pub NPWG: u16,           // byte 64:65      O - Namespace Preferred Write Granularity (NPWG)
-    pub NPWA: u16,           // byte 66:67      O - Namespace Preferred Write Alignment (NPWA)
-    pub NPDG: u16,           // byte 68:69      O - Namespace Preferred Deallocate Granularity (NPDG)
-    pub NPDA: u16,           // byte 70:71      O - Namespace Preferred Deallocate Alignment (NPDA)
-    pub NOWS: u16,           // byte 72:73      O - Namespace Optimal Write Size (NOWS)
-    pub MSSRL: u16,          // byte 74:75      O - Maximum Single Source Range Length(MSSRL)
-    pub MCL: u32,            // byte 76:79      O - Maximum Copy Length(MCL)
-    pub MSRC: u8,            // byte 80         O - Maximum Source Range Count(MSRC)
+    pub NAWUN: u16,  // byte 34:35      O - Namespace Atomic Write Unit Normal (NAWUN)
+    pub NAWUPF: u16, // byte 36:37      O - Namespace Atomic Write Unit Power Fail (NAWUPF)
+    pub NACWU: u16,  // byte 38:39      O - Namespace Atomic Compare & Write Unit (NACWU)
+    pub NABSN: u16,  // byte 40:41      O - Namespace Atomic Boundary Size Normal (NABSN)
+    pub NABO: u16,   // byte 42:43      O - Namespace Atomic Boundary Offset (NABO)
+    pub NABSPF: u16, // byte 44:45      O - Namespace Atomic Boundary Size Power Fail (NABSPF)
+    pub NOIOB: u16,  // byte 46:47      O - Namespace Optimal IO Boundary (NOIOB)
+    pub NVMCAP: [u8; 16], // byte 48:63      O - NVM Capacity (NVMCAP)
+    pub NPWG: u16,   // byte 64:65      O - Namespace Preferred Write Granularity (NPWG)
+    pub NPWA: u16,   // byte 66:67      O - Namespace Preferred Write Alignment (NPWA)
+    pub NPDG: u16,   // byte 68:69      O - Namespace Preferred Deallocate Granularity (NPDG)
+    pub NPDA: u16,   // byte 70:71      O - Namespace Preferred Deallocate Alignment (NPDA)
+    pub NOWS: u16,   // byte 72:73      O - Namespace Optimal Write Size (NOWS)
+    pub MSSRL: u16,  // byte 74:75      O - Maximum Single Source Range Length(MSSRL)
+    pub MCL: u32,    // byte 76:79      O - Maximum Copy Length(MCL)
+    pub MSRC: u8,    // byte 80         O - Maximum Source Range Count(MSRC)
     pub Reserved2: [u8; 11], // byte 81:91
-    pub ANAGRPID: u32,       // byte 92:95      O - ANA Group Identifier (ANAGRPID)
-    pub Reserved3: [u8; 3],  // byte 96:98
+    pub ANAGRPID: u32, // byte 92:95      O - ANA Group Identifier (ANAGRPID)
+    pub Reserved3: [u8; 3], // byte 96:98
     pub NSATTR: NamespaceAttributes, // byte 99         O - Namespace Attributes{
-    pub NVMSETID: u16,       // byte 100:101    O - Associated NVM Set Identifier
-    pub ENDGID: u16,         // byte 102:103    O - Associated Endurance Group Identier
-    pub NGUID: [u8; 16],     // byte 104:119    O - Namespace Globally Unique Identifier (NGUID)
-    pub EUI64: [u8; 8],      // byte 120:127    M - IEEE Extended Unique Identifier (EUI64)
+    pub NVMSETID: u16, // byte 100:101    O - Associated NVM Set Identifier
+    pub ENDGID: u16, // byte 102:103    O - Associated Endurance Group Identier
+    pub NGUID: [u8; 16], // byte 104:119    O - Namespace Globally Unique Identifier (NGUID)
+    pub EUI64: [u8; 8], // byte 120:127    M - IEEE Extended Unique Identifier (EUI64)
     pub LBAF: [NVME_LBA_FORMAT; 16], // byte 128:131 M - LBA Format 0 Support (LBAF0)
     // byte 132:135      O - LBA Format 1 Support (LBAF1)
     // byte 136:139      O - LBA Format 2 Support (LBAF2)
@@ -907,7 +907,7 @@ pub struct DeallocatedLogicalBlockFeatures {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NamespaceAttributes {
     pub WriteProtected: u8, // Write Protected
-    Reserved: u8,       // Reserved
+    Reserved: u8,           // Reserved
 } // byte 99 O - Namespace Attributes
 
 //
@@ -2013,7 +2013,7 @@ pub struct NVME_CDW11_FEATURE_NUMBER_OF_QUEUES {
 #[bitfield(u32)]
 pub struct NVME_CDW11_FEATURE_INTERRUPT_COALESCING {
     #[bits(8)]
-    pub THR: u32,  // Aggregation Threshold (THR)
+    pub THR: u32, // Aggregation Threshold (THR)
     #[bits(8)]
     pub TIME: u32, // Aggregation Time (TIME)
     #[bits(16)]
@@ -2025,7 +2025,7 @@ pub struct NVME_CDW11_FEATURE_INTERRUPT_VECTOR_CONFIG {
     #[bits(16)]
     pub IV: u32, // Interrupt Vector (IV)
     #[bits(1)]
-    pub CD: u32,  // Coalescing Disabled (CD)
+    pub CD: u32, // Coalescing Disabled (CD)
     #[bits(15)]
     Reserved0: u32,
 }
@@ -2081,9 +2081,9 @@ pub struct NVME_CDW11_FEATURE_SUPPORTED_CAPABILITY {
     #[bits(1)]
     pub SAVE: u32, // Save supported
     #[bits(1)]
-    pub NSS: u32,  // Namespace specific
+    pub NSS: u32, // Namespace specific
     #[bits(1)]
-    pub MOD: u32,  // Changeable
+    pub MOD: u32, // Changeable
     #[bits(29)]
     Reserved0: u32,
 }
@@ -2091,21 +2091,21 @@ pub struct NVME_CDW11_FEATURE_SUPPORTED_CAPABILITY {
 #[bitfield(u32)]
 pub struct NVME_CDW11_FEATURE_ASYNC_EVENT_CONFIG {
     #[bits(8)]
-    pub CriticalWarnings: u32,            // SMART / Health Critical Warnings
+    pub CriticalWarnings: u32, // SMART / Health Critical Warnings
     #[bits(1)]
-    pub NsAttributeNotices: u32,          // Namespace Attributes Notices
+    pub NsAttributeNotices: u32, // Namespace Attributes Notices
     #[bits(1)]
-    pub FwActivationNotices: u32,         // Firmware Activation Notices
+    pub FwActivationNotices: u32, // Firmware Activation Notices
     #[bits(1)]
-    pub TelemetryLogNotices: u32,         // Telemetry Log Notices
+    pub TelemetryLogNotices: u32, // Telemetry Log Notices
     #[bits(1)]
-    pub ANAChangeNotices: u32,            // Asymmetric Namespace Access Change Notices
+    pub ANAChangeNotices: u32, // Asymmetric Namespace Access Change Notices
     #[bits(1)]
     pub PredictableLogChangeNotices: u32, // Predictable Latency Event Aggregate Log Change Notices
     #[bits(1)]
-    pub LBAStatusNotices: u32,            // LBA Status Information Notices
+    pub LBAStatusNotices: u32, // LBA Status Information Notices
     #[bits(1)]
-    pub EnduranceEventNotices: u32,       // Endurance Group Event Aggregate Log Change Notices
+    pub EnduranceEventNotices: u32, // Endurance Group Event Aggregate Log Change Notices
     #[bits(12)]
     Reserved0: u32,
     #[bits(1)]
@@ -2120,7 +2120,7 @@ pub struct NVME_CDW11_FEATURE_ASYNC_EVENT_CONFIG {
 #[bitfield(u32)]
 pub struct NVME_CDW11_FEATURE_POWER_MANAGEMENT {
     #[bits(5)]
-    pub PS: u32,    // Power State (PS)
+    pub PS: u32, // Power State (PS)
     #[bits(27)]
     Reserved0: u32, // Reserved
 }
@@ -2141,13 +2141,13 @@ pub struct NVME_CDW11_FEATURE_AUTO_POWER_STATE_TRANSITION {
 #[bitfield(u64)]
 pub struct NVME_AUTO_POWER_STATE_TRANSITION_ENTRY {
     #[bits(3)]
-    Reserved0: u32,                      // Bits 0-2 are reserved.
+    Reserved0: u32, // Bits 0-2 are reserved.
     #[bits(5)]
     pub IdleTransitionPowerState: u32, // Bits 3-7 - (ITPS) The non-operational power state for the controller to autonomously transition to after there is a continuous period of idle time in the current power state that exceeds time specified in the ITPT field.
     #[bits(24)]
     pub IdleTimePriorToTransition: u32, // Bits 8-31 - (ITPT) The amount of idle time (in ms) that occurs in this power state prior to transitioning to the Idle Transition Power State. A value of 0 disables APST for this power state.
     #[bits(32)]
-    Reserved1: u32,                     // Bits 32-63 are reserved.
+    Reserved1: u32, // Bits 32-63 are reserved.
 }
 
 //
@@ -2170,7 +2170,7 @@ pub struct NVME_CDW11_FEATURE_TEMPERATURE_THRESHOLD {
     #[bits(4)]
     pub TMPSEL: u32, // Threshold Temperature Select (TMPSEL)
     #[bits(2)]
-    pub THSEL: u32,  // Threshold Type Select (THSEL)
+    pub THSEL: u32, // Threshold Type Select (THSEL)
     #[bits(10)]
     Reserved0: u32, // Reserved
 }
@@ -2181,11 +2181,11 @@ pub struct NVME_CDW11_FEATURE_TEMPERATURE_THRESHOLD {
 #[bitfield(u32)]
 pub struct NVME_CDW11_FEATURE_ERROR_RECOVERY {
     #[bits(16)]
-    pub TLER: u32,   // Time limited error recovery (TLER)
+    pub TLER: u32, // Time limited error recovery (TLER)
     #[bits(1)]
     pub DULBE: u32, // Deallocated or unwritten logical block error enable (DULBE)
     #[bits(15)]
-    Reserved0: u32,  // Reserved
+    Reserved0: u32, // Reserved
 }
 // Parameters for NVME_FEATURE_HOST_MEMORY_BUFFER
 //
@@ -2301,8 +2301,8 @@ pub enum NVME_NAMESPACE_METADATA_ELEMENT_TYPES {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct NVME_HOST_METADATA_ELEMENT_DESCRIPTOR {
-    pub FIELD: NVME_HOST_METADATA_ELEMENT_DESCRIPTOR_FIELD,     // Element Length (ELEN), element value length in bytes
-    pub EVAL: [u8; 0], // Element Value (EVAL), UTF-8 string
+    pub FIELD: NVME_HOST_METADATA_ELEMENT_DESCRIPTOR_FIELD, // Element Length (ELEN), element value length in bytes
+    pub EVAL: [u8; 0],                                      // Element Value (EVAL), UTF-8 string
 }
 
 #[bitfield(u32)]
@@ -2316,7 +2316,7 @@ pub struct NVME_HOST_METADATA_ELEMENT_DESCRIPTOR_FIELD {
     #[bits(4)]
     Reserved1: u32,
     #[bits(16)]
-    pub ELEN: u32,     // Element Length (ELEN), element value length in bytes
+    pub ELEN: u32, // Element Length (ELEN), element value length in bytes
 }
 
 #[repr(C)]
@@ -2344,7 +2344,7 @@ impl Default for NVME_FEATURE_HOST_METADATA_DATA {
 #[bitfield(u32)]
 pub struct NVME_CDW11_FEATURE_ERROR_INJECTION {
     #[bits(7)]
-    pub NUM: u32,       // Number of Error Injections.
+    pub NUM: u32, // Number of Error Injections.
     #[bits(25)]
     Reserved0: u32, // Reserved
 }

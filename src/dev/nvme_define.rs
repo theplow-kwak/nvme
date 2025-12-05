@@ -2,7 +2,7 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
-use bitfield_struct::bitfield;
+use modular_bitfield::prelude::*;
 
 pub const NVME_IDENTIFY_SIZE: usize = 4096;
 
@@ -15,19 +15,20 @@ pub enum NVME_AMS_OPTION {
     NVME_AMS_WEIGHTED_ROUND_ROBIN_URGENT = 1,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u64)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CONTROLLER_CAPABILITIES {
-    pub MQES: u16, // RO - Maximum Queue Entries Supported (MQES)
+    pub MQES: B16, // RO - Maximum Queue Entries Supported (MQES)
     pub CQR: bool, // RO - Contiguous Queues Required (CQR)
 
     // Bit 17, 18 - AMS; RO - Arbitration Mechanism Supported (AMS)
     pub AMS_WeightedRoundRobinWithUrgent: bool, // Bit 17: Weighted Round Robin with Urgent;
     pub AMS_VendorSpecific: bool,               // Bit 18: Vendor Specific.
 
-    pub Reserved0: u8, // RO - bit 19 ~ 23
-    pub TO: u8,        // RO - Timeout (TO)
-    pub DSTRD: u8,     // RO - Doorbell Stride (DSTRD)
+    pub Reserved0: B5, // RO - bit 19 ~ 23
+    pub TO: B8,        // RO - Timeout (TO)
+    pub DSTRD: B4,     // RO - Doorbell Stride (DSTRD)
     pub NSSRS: bool,   // RO - NVM Subsystem Reset Supported (NSSRS)
 
     // Bit 37 ~ 44 - CSS; RO - Command Sets Supported (CSS)
@@ -40,22 +41,23 @@ pub struct NVME_CONTROLLER_CAPABILITIES {
     pub CSS_MultipleIo: bool, // Bit 43: One or more IO command sets
     pub CSS_AdminOnly: bool,  // Bit 44: Only Admin command set (no IO command set)
 
-    pub Reserved2: u8, // RO - bit 45 ~ 47
-    pub MPSMIN: u8,    // RO - Memory Page Size Minimum (MPSMIN)
-    pub MPSMAX: u8,    // RO - Memory Page Size Maximum (MPSMAX)
-    pub Reserved3: u8, // RO - bit 56 ~ 63
+    pub Reserved2: B3, // RO - bit 45 ~ 47
+    pub MPSMIN: B4,    // RO - Memory Page Size Minimum (MPSMIN)
+    pub MPSMAX: B4,    // RO - Memory Page Size Maximum (MPSMAX)
+    pub Reserved3: B8, // RO - bit 56 ~ 63
 }
 
 //
 // 3.1.2  Offset 08h: VS (Version)
 //
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_VERSION {
     //LSB
-    pub TER: u8, // Tertiary Version Number (TER)
-    pub MNR: u8, // Minor Version Number (MNR)
-    pub MJR: u16, // Major Version Number (MJR)
+    pub TER: B8, // Tertiary Version Number (TER)
+    pub MNR: B8, // Minor Version Number (MNR)
+    pub MJR: B16, // Major Version Number (MJR)
                  //MSB
 }
 
@@ -78,18 +80,19 @@ pub enum NVME_CSS_COMMAND_SETS {
     NVME_CSS_ADMIN_COMMAND_SET_ONLY = 7,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CONTROLLER_CONFIGURATION {
-    pub EN: u32,        // RW - Enable (EN)
-    pub Reserved0: u32, // RO
-    pub CSS: u32,       // RW - I/O  Command Set Selected (CSS)
-    pub MPS: u32,       // RW - Memory Page Size (MPS)
-    pub AMS: u32,       // RW - Arbitration Mechanism Selected (AMS)
-    pub SHN: u32,       // RW - Shutdown Notification (SHN)
-    pub IOSQES: u32,    // RW - I/O  Submission Queue Entry Size (IOSQES)
-    pub IOCQES: u32,    // RW - I/O  Completion Queue Entry Size (IOCQES)
-    pub Reserved1: u32, // RO
+    pub EN: B1,        // RW - Enable (EN)
+    pub Reserved0: B3, // RO
+    pub CSS: B3,       // RW - I/O  Command Set Selected (CSS)
+    pub MPS: B4,       // RW - Memory Page Size (MPS)
+    pub AMS: B3,       // RW - Arbitration Mechanism Selected (AMS)
+    pub SHN: B2,       // RW - Shutdown Notification (SHN)
+    pub IOSQES: B4,    // RW - I/O  Submission Queue Entry Size (IOSQES)
+    pub IOCQES: B4,    // RW - I/O  Completion Queue Entry Size (IOCQES)
+    pub Reserved1: B8, // RO
 }
 
 //
@@ -103,15 +106,16 @@ pub enum NVME_CSTS_SHST_SHUTDOWN_STATUS {
     NVME_CSTS_SHST_SHUTDOWN_COMPLETED = 2,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CONTROLLER_STATUS {
     pub RDY: bool,      // RO - Ready (RDY)
     pub CFS: bool,      // RO - Controller Fatal Status (CFS)
-    pub SHST: u8,       // RO - Shutdown Status (SHST)
+    pub SHST: B2,       // RO - Shutdown Status (SHST)
     pub NSSRO: bool,    // RW1C - NVM Subsystem Reset Occurred (NSSRO)
     pub PP: bool,       // RO - Processing Paused (PP)
-    pub Reserved0: u32, // RO
+    pub Reserved0: B26, // RO
 }
 
 //
@@ -132,43 +136,46 @@ pub struct NVME_NVM_SUBSYSTEM_RESET {
 //     pub fields: NVME_ADMIN_QUEUE_ATTRIBUTES_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_ADMIN_QUEUE_ATTRIBUTES {
-    pub ASQS: u16,     // RW - Admin  Submission Queue Size (ASQS)
-    pub Reserved0: u8, // RO
-    pub ACQS: u16,     // RW - Admin  Completion Queue Size (ACQS)
-    pub Reserved1: u8, // RO
+    pub ASQS: B12,     // RW - Admin  Submission Queue Size (ASQS)
+    pub Reserved0: B4, // RO
+    pub ACQS: B12,     // RW - Admin  Completion Queue Size (ACQS)
+    pub Reserved1: B4, // RO
 }
 //
 // 3.1.9  Offset 28h: ASQ (Admin Submission Queue Base Address)
 //
-#[repr(C)]
+#[bitfield]
+#[repr(u64)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_ADMIN_SUBMISSION_QUEUE_BASE_ADDRESS {
-    pub Reserved0: u64, // RO
-    pub ASQB: u64,      // RW - Admin Submission Queue Base (ASQB)
+    pub Reserved0: B12, // RO
+    pub ASQB: B52,      // RW - Admin Submission Queue Base (ASQB)
 }
 
 //
 // 3.1.10  Offset 30h: ACQ (Admin Completion Queue Base Address)
 //
-
-#[repr(C)]
+#[bitfield]
+#[repr(u64)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_ADMIN_COMPLETION_QUEUE_BASE_ADDRESS {
-    pub Reserved0: u64, // RO
-    pub ACQB: u64,      // RW - Admin Completion Queue Base (ACQB)
+    pub Reserved0: B12, // RO
+    pub ACQB: B52,      // RW - Admin Completion Queue Base (ACQB)
 }
 //
 // 3.1.11 Offset 38h: CMBLOC (Controller Memory Buffer Location)
 //
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CONTROLLER_MEMORY_BUFFER_LOCATION {
-    pub BIR: u32,      // RO - Base Indicator Register (BIR)
-    pub Reserved: u32, // RO
-    pub OFST: u32,     // RO - Offset (OFST)
+    pub BIR: B3,      // RO - Base Indicator Register (BIR)
+    pub Reserved: B9, // RO
+    pub OFST: B20,    // RO - Offset (OFST)
 }
 
 //
@@ -184,17 +191,18 @@ pub enum NVME_CMBSZ_SIZE_UNITS {
     NVME_CMBSZ_SIZE_UNITS_64GB = 6,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CONTROLLER_MEMORY_BUFFER_SIZE {
-    pub SQS: u32,      // RO - Submission Queue Support (SQS)
-    pub CQS: u32,      // RO - Completion Queue Support (CQS)
-    pub LISTS: u32,    // RO - PRP SGL List Support (LISTS)
-    pub RDS: u32,      // RO - Read Data Support (RDS)
-    pub WDS: u32,      // RO - Write Data Support (WDS)
-    pub Reserved: u32, // RO
-    pub SZU: u32,      // RO - Size Units (SZU)
-    pub SZ: u32,       // RO - Size (SZ)
+    pub SQS: B1,      // RO - Submission Queue Support (SQS)
+    pub CQS: B1,      // RO - Completion Queue Support (CQS)
+    pub LISTS: B1,    // RO - PRP SGL List Support (LISTS)
+    pub RDS: B1,      // RO - Read Data Support (RDS)
+    pub WDS: B1,      // RO - Write Data Support (WDS)
+    pub Reserved: B3, // RO
+    pub SZU: B4,      // RO - Size Units (SZU)
+    pub SZ: B20,      // RO - Size (SZ)
 }
 
 //
@@ -265,20 +273,16 @@ impl Default for NVME_CONTROLLER_REGISTERS {
 // Command completion status
 // The "Phase Tag" field and "Status Field" are separated in spec. We define them in the same data structure to ease the memory access from software.
 //
-#[bitfield(u16)]
+#[bitfield]
+#[repr(u16)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_COMMAND_STATUS {
-    #[bits(1)]
-    pub P: u16, // Phase Tag (P)
-    #[bits(8)]
-    pub SC: u16, // Status Code (SC)
-    #[bits(3)]
-    pub SCT: u16, // Status Code Type (SCT)
-    #[bits(2)]
-    pub Reserved: u16,
-    #[bits(1)]
-    pub M: u16, // More (M)
-    #[bits(1)]
-    pub DNR: u16, // Do Not Retry (DNR)
+    pub P: B1,   // Phase Tag (P)
+    pub SC: B8,  // Status Code (SC)
+    pub SCT: B3, // Status Code Type (SCT)
+    pub Reserved: B2,
+    pub M: B1,   // More (M)
+    pub DNR: B1, // Do Not Retry (DNR)
 }
 
 //
@@ -365,14 +369,15 @@ pub enum NVME_ASYNC_EVENT_IO_COMMAND_SET_STATUS_CODES {
     NVME_ASYNC_IO_CMD_SANITIZE_OPERATION_COMPLETED_WITH_UNEXPECTED_DEALLOCATION = 2,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_COMPLETION_DW0_ASYNC_EVENT_REQUEST {
-    pub AsyncEventType: u32,
-    pub Reserved0: u32,
-    pub AsyncEventInfo: u32,
-    pub LogPage: u32,
-    pub Reserved1: u32,
+    pub AsyncEventType: B3,
+    pub Reserved0: B5,
+    pub AsyncEventInfo: B8,
+    pub LogPage: B8,
+    pub Reserved1: B8,
 }
 
 pub enum NVME_STATUS_TYPES {
@@ -598,12 +603,13 @@ pub enum NVME_FEATURES {
 //
 // Abort command: parameter
 //
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
-
 pub struct NVME_CDW10_ABORT {
-    pub SQID: u8, // Submission Queue Identifier (SQID)
-    pub CID: u16, // Command Identifier (CID)
+    pub SQID: B8, // Submission Queue Identifier (SQID)
+    pub CID: B16, // Command Identifier (CID)
+    reserved: B8,
 }
 
 //
@@ -645,14 +651,13 @@ pub enum NVME_COMMAND_SET_IDENTIFIERS {
     NVME_COMMAND_SET_ZONED_NAMESPACE = 0x2,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_IDENTIFY {
-    #[bits(8)]
-    pub CNS: u8, // Controller or Namespace Structure (CNS, Defined in NVME_IDENTIFY_CNS_CODES)
-    #[bits(8)]
-    pub Reserved: u8,
-    #[bits(16)]
-    pub CNTID: u16, // Controller Identifier (CNTID)
+    pub CNS: B8, // Controller or Namespace Structure (CNS, Defined in NVME_IDENTIFY_CNS_CODES)
+    pub Reserved: B8,
+    pub CNTID: B16, // Controller Identifier (CNTID)
 }
 
 #[repr(C)]
@@ -687,29 +692,31 @@ pub struct NVME_CDW11_IDENTIFY_STRUCT2 {
 //
 // Output of NVME_IDENTIFY_CNS_SPECIFIC_NAMESPACE (0x0)
 //
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_LBA_FORMAT {
     pub MS: u16,   // bit 0:15     Metadata Size (MS)
     pub LBADS: u8, // bit 16:23    LBA  Data  Size (LBADS)
 
-    pub RP: u8,        // bit 24:25    Relative Performance (RP)
-    pub Reserved0: u8, // bit 26:31
+    pub RP: B2,        // bit 24:25    Relative Performance (RP)
+    pub Reserved0: B6, // bit 26:31
 }
 
 //
 //
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVM_RESERVATION_CAPABILITIES {
-    pub PersistThroughPowerLoss: u8,
-    pub WriteExclusiveReservation: u8,
-    pub ExclusiveAccessReservation: u8,
-    pub WriteExclusiveRegistrantsOnlyReservation: u8,
-    pub ExclusiveAccessRegistrantsOnlyReservation: u8,
-    pub WriteExclusiveAllRegistrantsReservation: u8,
-    pub ExclusiveAccessAllRegistrantsReservation: u8,
-    pub Reserved: u8,
+    pub PersistThroughPowerLoss: B1,
+    pub WriteExclusiveReservation: B1,
+    pub ExclusiveAccessReservation: B1,
+    pub WriteExclusiveRegistrantsOnlyReservation: B1,
+    pub ExclusiveAccessRegistrantsOnlyReservation: B1,
+    pub WriteExclusiveAllRegistrantsReservation: B1,
+    pub ExclusiveAccessAllRegistrantsReservation: B1,
+    pub Reserved: B1,
 }
 
 //
@@ -754,22 +761,7 @@ pub struct NVME_IDENTIFY_NAMESPACE_DATA {
     pub ENDGID: u16, // byte 102:103    O - Associated Endurance Group Identier
     pub NGUID: [u8; 16], // byte 104:119    O - Namespace Globally Unique Identifier (NGUID)
     pub EUI64: [u8; 8], // byte 120:127    M - IEEE Extended Unique Identifier (EUI64)
-    pub LBAF: [NVME_LBA_FORMAT; 16], // byte 128:131 M - LBA Format 0 Support (LBAF0)
-    // byte 132:135      O - LBA Format 1 Support (LBAF1)
-    // byte 136:139      O - LBA Format 2 Support (LBAF2)
-    // byte 140:143      O - LBA Format 3 Support (LBAF3)
-    // byte 144:147      O - LBA Format 4 Support (LBAF4)
-    // byte 148:151      O - LBA Format 5 Support (LBAF5)
-    // byte 152:155      O - LBA Format 6 Support (LBAF6)
-    // byte 156:159      O - LBA Format 7 Support (LBAF7)
-    // byte 160:163      O - LBA Format 8 Support (LBAF8)
-    // byte 164:167      O - LBA Format 9 Support (LBAF9)
-    // byte 168:171      O - LBA Format 10 Support (LBAF10)
-    // byte 172:175      O - LBA Format 11 Support (LBAF11)
-    // byte 176:179      O - LBA Format 12 Support (LBAF12)
-    // byte 180:183      O - LBA Format 13 Support (LBAF13)
-    // byte 184:187      O - LBA Format 14 Support (LBAF14)
-    // byte 188:191      O - LBA Format 15 Support (LBAF15)
+    pub LBAF: [NVME_LBA_FORMAT; 16], // byte 128:191 M - LBA Format 0~15 Support (LBAF0)
     pub Reserved4: [u8; 192], // byte 192:383
     pub VS: [u8; 3712], // byte 384:4095    O - Vendor Specific (VS): This range of bytes is allocated for vendor specific usage.
 }
@@ -821,138 +813,148 @@ impl Default for NVME_IDENTIFY_NAMESPACE_DATA {
     }
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NamespaceFeatures {
-    pub ThinProvisioning: u8,
-    pub NameSpaceAtomicWriteUnit: u8,
-    pub DeallocatedOrUnwrittenError: u8,
-    pub SkipReuseUI: u8,
-    pub NameSpaceIoOptimization: u8,
-    pub Reserved: u8,
+    pub ThinProvisioning: B1,
+    pub NameSpaceAtomicWriteUnit: B1,
+    pub DeallocatedOrUnwrittenError: B1,
+    pub SkipReuseUI: B1,
+    pub NameSpaceIoOptimization: B1,
+    pub Reserved: B3,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct FormattedLbaSize {
-    pub LbaFormatIndex: u8,
-    pub MetadataInExtendedDataLBA: u8,
-    Reserved: u8,
+    pub LbaFormatIndex: B4,
+    pub MetadataInExtendedDataLBA: B1,
+    Reserved: B3,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct MetadataCapabilities {
-    pub MetadataInExtendedDataLBA: u8,
-    pub MetadataInSeparateBuffer: u8,
-    Reserved: u8,
+    pub MetadataInExtendedDataLBA: B1,
+    pub MetadataInSeparateBuffer: B1,
+    Reserved: B6,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DataProtectionCapabilities {
-    pub ProtectionInfoType1: u8,
-    pub ProtectionInfoType2: u8,
-    pub ProtectionInfoType3: u8,
-    pub InfoAtBeginningOfMetadata: u8,
-    pub InfoAtEndOfMetadata: u8,
-    pub Reserved: u8,
+    pub ProtectionInfoType1: B1,
+    pub ProtectionInfoType2: B1,
+    pub ProtectionInfoType3: B1,
+    pub InfoAtBeginningOfMetadata: B1,
+    pub InfoAtEndOfMetadata: B1,
+    pub Reserved: B3,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DataProtectionTypeSettings {
-    pub ProtectionInfoTypeEnabled: u8,
-    pub InfoAtBeginningOfMetadata: u8,
-    Reserved: u8,
+    pub ProtectionInfoTypeEnabled: B3,
+    pub InfoAtBeginningOfMetadata: B1,
+    Reserved: B4,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NamespaceMultiPathIoCapabilities {
-    pub SharedNameSpace: u8,
-    Reserved: u8,
+    pub SharedNameSpace: B1,
+    Reserved: B7,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NvmReservationCapabilities {
-    pub PersistThroughPowerLoss: u8,
-    pub WriteExclusiveReservation: u8,
-    pub ExclusiveAccessReservation: u8,
-    pub WriteExclusiveRegistrantsOnlyReservation: u8,
-    pub ExclusiveAccessRegistrantsOnlyReservation: u8,
-    pub WriteExclusiveAllRegistrantsReservation: u8,
-    pub ExclusiveAccessAllRegistrantsReservation: u8,
-    pub Reserved: u8,
+    pub PersistThroughPowerLoss: B1,
+    pub WriteExclusiveReservation: B1,
+    pub ExclusiveAccessReservation: B1,
+    pub WriteExclusiveRegistrantsOnlyReservation: B1,
+    pub ExclusiveAccessRegistrantsOnlyReservation: B1,
+    pub WriteExclusiveAllRegistrantsReservation: B1,
+    pub ExclusiveAccessAllRegistrantsReservation: B1,
+    pub Reserved: B1,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct FormatProgressIndicator {
-    pub PercentageRemained: u8,
-    Supported: u8,
+    pub PercentageRemained: B7,
+    Supported: B1,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DeallocatedLogicalBlockFeatures {
-    pub ReadBehavior: u8,
-    pub WriteZeroes: u8,
-    pub GuardFieldWithCRC: u8,
-    Reserved: u8,
+    pub ReadBehavior: B3,
+    pub WriteZeroes: B1,
+    pub GuardFieldWithCRC: B1,
+    Reserved: B3,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NamespaceAttributes {
-    pub WriteProtected: u8, // Write Protected
-    Reserved: u8,           // Reserved
+    pub WriteProtected: B1, // Write Protected
+    Reserved: B7,           // Reserved
 } // byte 99 O - Namespace Attributes
 
 //
 // Output of NVME_IDENTIFY_CNS_CONTROLLER (0x01)
 //
-#[repr(C)]
+#[bitfield]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_POWER_STATE_DESC {
-    pub MP: u16, // bit 0:15.    Maximum  Power (MP)
+    pub MP: B16, // bit 0:15.    Maximum  Power (MP)
 
-    pub Reserved0: u8, // bit 16:23
+    pub Reserved0: B8, // bit 16:23
 
-    pub MPS: u8,       // bit 24: Max Power Scale (MPS)
-    pub NOPS: u8,      // bit 25: Non-Operational State (NOPS)
-    pub Reserved1: u8, // bit 26:31
+    pub MPS: B1,       // bit 24: Max Power Scale (MPS)
+    pub NOPS: B1,      // bit 25: Non-Operational State (NOPS)
+    pub Reserved1: B6, // bit 26:31
 
-    pub ENLAT: u32, // bit 32:63.   Entry Latency (ENLAT)
-    pub EXLAT: u32, // bit 64:95.   Exit Latency (EXLAT)
+    pub ENLAT: B32, // bit 32:63.   Entry Latency (ENLAT)
+    pub EXLAT: B32, // bit 64:95.   Exit Latency (EXLAT)
 
-    pub RRT: u8,       // bit 96:100.  Relative Read Throughput (RRT)
-    pub Reserved2: u8, // bit 101:103
+    pub RRT: B5,       // bit 96:100.  Relative Read Throughput (RRT)
+    pub Reserved2: B3, // bit 101:103
 
-    pub RRL: u8,       // bit 104:108  Relative Read Latency (RRL)
-    pub Reserved3: u8, // bit 109:111
+    pub RRL: B5,       // bit 104:108  Relative Read Latency (RRL)
+    pub Reserved3: B3, // bit 109:111
 
-    pub RWT: u8,       // bit 112:116  Relative Write Throughput (RWT)
-    pub Reserved4: u8, // bit 117:119
+    pub RWT: B5,       // bit 112:116  Relative Write Throughput (RWT)
+    pub Reserved4: B3, // bit 117:119
 
-    pub RWL: u8,       // bit 120:124  Relative Write Latency (RWL)
-    pub Reserved5: u8, // bit 125:127
+    pub RWL: B5,       // bit 120:124  Relative Write Latency (RWL)
+    pub Reserved5: B3, // bit 125:127
 
-    pub IDLP: u16, // bit 128:143  Idle Power (IDLP)
+    pub IDLP: B16, // bit 128:143  Idle Power (IDLP)
 
-    pub Reserved6: u8, // bit 144:149
-    pub IPS: u8,       // bit 150:151  Idle Power Scale (IPS)
+    pub Reserved6: B6, // bit 144:149
+    pub IPS: B2,       // bit 150:151  Idle Power Scale (IPS)
 
-    pub Reserved7: u8, // bit 152:159
+    pub Reserved7: B8, // bit 152:159
 
-    pub ACTP: u16, // bit 160:175  Active Power (ACTP)
+    pub ACTP: B16, // bit 160:175  Active Power (ACTP)
 
-    pub APW: u8,       // bit 176:178  Active Power Workload (APW)
-    pub Reserved8: u8, // bit 179:181
-    pub APS: u8,       // bit 182:183  Active Power Scale (APS)
+    pub APW: B3,       // bit 176:178  Active Power Workload (APW)
+    pub Reserved8: B3, // bit 179:181
+    pub APS: B2,       // bit 182:183  Active Power Scale (APS)
 
-    pub Reserved9: [u8; 9], // bit 184:255.
+    pub Reserved9: B72, // bit 184:255.
 }
 
 #[repr(C)]
@@ -1129,350 +1131,265 @@ impl Default for NVME_IDENTIFY_CONTROLLER_DATA {
     }
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct CMIC {
-    #[bits(1)]
-    pub MultiPCIePorts: u8,
-    #[bits(1)]
-    pub MultiControllers: u8,
-    #[bits(1)]
-    pub SRIOV: u8,
-    #[bits(5)]
-    pub Reserved: u8,
+    pub MultiPCIePorts: B1,
+    pub MultiControllers: B1,
+    pub SRIOV: B1,
+    pub Reserved: B5,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct OAES {
-    #[bits(8)]
-    pub Reserved0: u32,
-    #[bits(1)]
-    pub NamespaceAttributeChanged: u32,
-    #[bits(1)]
-    pub FirmwareActivation: u32,
-    #[bits(1)]
-    pub Reserved1: u32,
-    #[bits(1)]
-    pub AsymmetricAccessChanged: u32,
-    #[bits(1)]
-    pub PredictableLatencyAggregateLogChanged: u32,
-    #[bits(1)]
-    pub LbaStatusChanged: u32,
-    #[bits(1)]
-    pub EnduranceGroupAggregateLogChanged: u32,
-    #[bits(12)]
-    pub Reserved2: u32,
-    #[bits(1)]
-    pub ZoneInformation: u32,
-    #[bits(4)]
-    pub Reserved3: u32,
+    pub Reserved0: B8,
+    pub NamespaceAttributeChanged: B1,
+    pub FirmwareActivation: B1,
+    pub Reserved1: B1,
+    pub AsymmetricAccessChanged: B1,
+    pub PredictableLatencyAggregateLogChanged: B1,
+    pub LbaStatusChanged: B1,
+    pub EnduranceGroupAggregateLogChanged: B1,
+    pub Reserved2: B12,
+    pub ZoneInformation: B1,
+    pub Reserved3: B4,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct CTRATT {
-    #[bits(1)]
-    pub HostIdentifier128Bit: u32,
-    #[bits(1)]
-    pub NOPSPMode: u32,
-    #[bits(1)]
-    pub NVMSets: u32,
-    #[bits(1)]
-    pub ReadRecoveryLevels: u32,
-    #[bits(1)]
-    pub EnduranceGroups: u32,
-    #[bits(1)]
-    pub PredictableLatencyMode: u32,
-    #[bits(1)]
-    pub TBKAS: u32,
-    #[bits(1)]
-    pub NamespaceGranularity: u32,
-    #[bits(1)]
-    pub SQAssociations: u32,
-    #[bits(1)]
-    pub UUIDList: u32,
-    #[bits(22)]
-    pub Reserved0: u32,
+    pub HostIdentifier128Bit: B1,
+    pub NOPSPMode: B1,
+    pub NVMSets: B1,
+    pub ReadRecoveryLevels: B1,
+    pub EnduranceGroups: B1,
+    pub PredictableLatencyMode: B1,
+    pub TBKAS: B1,
+    pub NamespaceGranularity: B1,
+    pub SQAssociations: B1,
+    pub UUIDList: B1,
+    pub Reserved0: B22,
 }
 
-#[bitfield(u16)]
+#[bitfield]
+#[repr(u16)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct RRLS {
-    #[bits(1)]
-    pub ReadRecoveryLevel0: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel1: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel2: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel3: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel4: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel5: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel6: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel7: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel8: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel9: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel10: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel11: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel12: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel13: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel14: u16,
-    #[bits(1)]
-    pub ReadRecoveryLevel15: u16,
+    pub ReadRecoveryLevel0: B1,
+    pub ReadRecoveryLevel1: B1,
+    pub ReadRecoveryLevel2: B1,
+    pub ReadRecoveryLevel3: B1,
+    pub ReadRecoveryLevel4: B1,
+    pub ReadRecoveryLevel5: B1,
+    pub ReadRecoveryLevel6: B1,
+    pub ReadRecoveryLevel7: B1,
+    pub ReadRecoveryLevel8: B1,
+    pub ReadRecoveryLevel9: B1,
+    pub ReadRecoveryLevel10: B1,
+    pub ReadRecoveryLevel11: B1,
+    pub ReadRecoveryLevel12: B1,
+    pub ReadRecoveryLevel13: B1,
+    pub ReadRecoveryLevel14: B1,
+    pub ReadRecoveryLevel15: B1,
 }
 
-#[bitfield(u16)]
+#[bitfield]
+#[repr(u16)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct OACS {
-    #[bits(1)]
-    pub SecurityCommands: u16,
-    #[bits(1)]
-    pub FormatNVM: u16,
-    #[bits(1)]
-    pub FirmwareCommands: u16,
-    #[bits(1)]
-    pub NamespaceCommands: u16,
-    #[bits(1)]
-    pub DeviceSelfTest: u16,
-    #[bits(1)]
-    pub Directives: u16,
-    #[bits(1)]
-    pub NVMeMICommands: u16,
-    #[bits(1)]
-    pub VirtualizationMgmt: u16,
-    #[bits(1)]
-    pub DoorBellBufferConfig: u16,
-    #[bits(1)]
-    pub GetLBAStatus: u16,
-    #[bits(6)]
-    pub Reserved: u16,
+    pub SecurityCommands: B1,
+    pub FormatNVM: B1,
+    pub FirmwareCommands: B1,
+    pub NamespaceCommands: B1,
+    pub DeviceSelfTest: B1,
+    pub Directives: B1,
+    pub NVMeMICommands: B1,
+    pub VirtualizationMgmt: B1,
+    pub DoorBellBufferConfig: B1,
+    pub GetLBAStatus: B1,
+    pub Reserved: B6,
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct FRMW {
-    #[bits(1)]
-    pub Slot1ReadOnly: u8,
-    #[bits(3)]
-    pub SlotCount: u8,
-    #[bits(1)]
-    pub ActivationWithoutReset: u8,
-    #[bits(3)]
-    pub Reserved: u8,
+    pub Slot1ReadOnly: B1,
+    pub SlotCount: B3,
+    pub ActivationWithoutReset: B1,
+    pub Reserved: B3,
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct LPA {
-    #[bits(1)]
-    pub SmartPagePerNamespace: u8,
-    #[bits(1)]
-    pub CommandEffectsLog: u8,
-    #[bits(1)]
-    pub LogPageExtendedData: u8,
-    #[bits(1)]
-    pub TelemetrySupport: u8,
-    #[bits(1)]
-    pub PersistentEventLog: u8,
-    #[bits(1)]
-    pub Reserved0: u8,
-    #[bits(1)]
-    pub TelemetryDataArea4: u8,
-    #[bits(1)]
-    pub Reserved1: u8,
+    pub SmartPagePerNamespace: B1,
+    pub CommandEffectsLog: B1,
+    pub LogPageExtendedData: B1,
+    pub TelemetrySupport: B1,
+    pub PersistentEventLog: B1,
+    pub Reserved0: B1,
+    pub TelemetryDataArea4: B1,
+    pub Reserved1: B1,
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct AVSCC {
-    #[bits(1)]
-    pub CommandFormatInSpec: u8,
-    #[bits(7)]
-    pub Reserved: u8,
+    pub CommandFormatInSpec: B1,
+    pub Reserved: B7,
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct APSTA {
-    #[bits(1)]
-    pub Supported: u8,
-    #[bits(7)]
-    pub Reserved: u8,
+    pub Supported: B1,
+    pub Reserved: B7,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct RPMBS {
-    #[bits(3)]
-    pub RPMBUnitCount: u32, // Number of RPMB Units
-    #[bits(3)]
-    pub AuthenticationMethod: u32, // Authentication Method
-    #[bits(10)]
-    pub Reserved0: u32,
-    #[bits(8)]
-    pub TotalSize: u32, // Total Size: in 128KB units.
-    #[bits(8)]
-    pub AccessSize: u32, // Access Size: in 512B units.
+    pub RPMBUnitCount: B3,        // Number of RPMB Units
+    pub AuthenticationMethod: B3, // Authentication Method
+    pub Reserved0: B10,
+    pub TotalSize: B8,  // Total Size: in 128KB units.
+    pub AccessSize: B8, // Access Size: in 512B units.
 }
 
-#[bitfield(u16)]
+#[bitfield]
+#[repr(u16)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct HCTMA {
-    #[bits(1)]
-    pub Supported: u16,
-    #[bits(15)]
-    pub Reserved: u16,
+    pub Supported: B1,
+    pub Reserved: B15,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct SANICAP {
-    #[bits(1)]
-    pub CryptoErase: u32,
-    #[bits(1)]
-    pub BlockErase: u32,
-    #[bits(1)]
-    pub Overwrite: u32,
-    #[bits(26)]
-    pub Reserved: u32,
-    #[bits(1)]
-    pub NDI: u32,
-    #[bits(2)]
-    pub NODMMAS: u32,
+    pub CryptoErase: B1,
+    pub BlockErase: B1,
+    pub Overwrite: B1,
+    pub Reserved: B26,
+    pub NDI: B1,
+    pub NODMMAS: B2,
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct ANACAP {
-    #[bits(1)]
-    pub OptimizedState: u8,
-    #[bits(1)]
-    pub NonOptimizedState: u8,
-    #[bits(1)]
-    pub InaccessibleState: u8,
-    #[bits(1)]
-    pub PersistentLossState: u8,
-    #[bits(1)]
-    pub ChangeState: u8,
-    #[bits(1)]
-    pub Reserved: u8,
-    #[bits(1)]
-    pub StaticANAGRPID: u8,
-    #[bits(1)]
-    pub SupportNonZeroANAGRPID: u8,
+    pub OptimizedState: B1,
+    pub NonOptimizedState: B1,
+    pub InaccessibleState: B1,
+    pub PersistentLossState: B1,
+    pub ChangeState: B1,
+    pub Reserved: B1,
+    pub StaticANAGRPID: B1,
+    pub SupportNonZeroANAGRPID: B1,
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct SQES {
-    #[bits(4)]
-    pub RequiredEntrySize: u8,
-    #[bits(4)]
-    pub MaxEntrySize: u8,
+    pub RequiredEntrySize: B4,
+    pub MaxEntrySize: B4,
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct CQES {
-    #[bits(4)]
-    pub RequiredEntrySize: u8,
-    #[bits(4)]
-    pub MaxEntrySize: u8,
+    pub RequiredEntrySize: B4,
+    pub MaxEntrySize: B4,
 }
 
-#[bitfield(u16)]
+#[bitfield]
+#[repr(u16)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct ONCS {
-    #[bits(1)]
-    pub Compare: u16,
-    #[bits(1)]
-    pub WriteUncorrectable: u16,
-    #[bits(1)]
-    pub DatasetManagement: u16,
-    #[bits(1)]
-    pub WriteZeroes: u16,
-    #[bits(1)]
-    pub FeatureField: u16,
-    #[bits(1)]
-    pub Reservations: u16,
-    #[bits(1)]
-    pub Timestamp: u16,
-    #[bits(1)]
-    pub Verify: u16,
-    #[bits(8)]
-    pub Reserved: u16,
+    pub Compare: B1,
+    pub WriteUncorrectable: B1,
+    pub DatasetManagement: B1,
+    pub WriteZeroes: B1,
+    pub FeatureField: B1,
+    pub Reservations: B1,
+    pub Timestamp: B1,
+    pub Verify: B1,
+    pub Reserved: B8,
 }
 
-#[bitfield(u16)]
+#[bitfield]
+#[repr(u16)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct FUSES {
-    #[bits(1)]
-    pub CompareAndWrite: u16,
-    #[bits(15)]
-    pub Reserved: u16,
+    pub CompareAndWrite: B1,
+    pub Reserved: B15,
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct FNA {
-    #[bits(1)]
-    pub FormatApplyToAll: u8,
-    #[bits(1)]
-    pub SecureEraseApplyToAll: u8,
-    #[bits(1)]
-    pub CryptographicEraseSupported: u8,
-    #[bits(1)]
-    pub FormatSupportNSIDAllF: u8,
-    #[bits(4)]
-    pub Reserved: u8,
+    pub FormatApplyToAll: B1,
+    pub SecureEraseApplyToAll: B1,
+    pub CryptographicEraseSupported: B1,
+    pub FormatSupportNSIDAllF: B1,
+    pub Reserved: B4,
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct VWC {
-    #[bits(1)]
-    pub Present: u8,
-    #[bits(2)]
-    pub FlushBehavior: u8,
-    #[bits(5)]
-    pub Reserved: u8,
+    pub Present: B1,
+    pub FlushBehavior: B2,
+    pub Reserved: B5,
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVSCC {
-    #[bits(1)]
-    pub CommandFormatInSpec: u8,
-    #[bits(7)]
-    pub Reserved: u8,
+    pub CommandFormatInSpec: B1,
+    pub Reserved: B7,
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NWPC {
-    #[bits(1)]
-    pub WriteProtect: u8,
-    #[bits(1)]
-    pub UntilPowerCycle: u8,
-    #[bits(1)]
-    pub Permanent: u8,
-    #[bits(5)]
-    pub Reserved: u8,
+    pub WriteProtect: B1,
+    pub UntilPowerCycle: B1,
+    pub Permanent: B1,
+    pub Reserved: B5,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct SGLS {
-    #[bits(2)]
-    pub SGLSupported: u32,
-    #[bits(1)]
-    pub KeyedSGLData: u32,
-    #[bits(13)]
-    pub Reserved0: u32,
-    #[bits(1)]
-    pub BitBucketDescrSupported: u32,
-    #[bits(1)]
-    pub ByteAlignedContiguousPhysicalBuffer: u32,
-    #[bits(1)]
-    pub SGLLengthLargerThanDataLength: u32,
-    #[bits(1)]
-    pub MPTRSGLDescriptor: u32,
-    #[bits(1)]
-    pub AddressFieldSGLDataBlock: u32,
-    #[bits(1)]
-    pub TransportSGLData: u32,
-    #[bits(10)]
-    pub Reserved1: u32,
+    pub SGLSupported: B2,
+    pub KeyedSGLData: B1,
+    pub Reserved0: B13,
+    pub BitBucketDescrSupported: B1,
+    pub ByteAlignedContiguousPhysicalBuffer: B1,
+    pub SGLLengthLargerThanDataLength: B1,
+    pub MPTRSGLDescriptor: B1,
+    pub AddressFieldSGLDataBlock: B1,
+    pub TransportSGLData: B1,
+    pub Reserved1: B10,
 }
 
 //
@@ -1592,19 +1509,21 @@ impl Default for NVME_IDENTIFY_SPECIFIC_NAMESPACE_IO_COMMAND_SET {
     }
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u16)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ZOC {
-    pub VariableZoneCapacity: u16,
-    pub ZoneExcursions: u16,
-    Reserved: u16,
+    pub VariableZoneCapacity: B1,
+    pub ZoneExcursions: B1,
+    Reserved: B14,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u16)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct OZCS {
-    pub ReadAcrossZoneBoundaries: u16,
-    Reserved: u16,
+    pub ReadAcrossZoneBoundaries: B1,
+    Reserved: B15,
 }
 //
 // Output of NVME_IDENTIFY_CNS_SPECIFIC_CONTROLLER_IO_COMMAND_SET (0x06) with Command Set Identifier (0x00)
@@ -1713,12 +1632,13 @@ pub struct NVME_LBA_RANGE_TYPE_ENTRY {
     pub Reserved1: [u8; 16],
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_LBA_RANGE_TYPE_ATTRIBUTES {
-    pub MayOverwritten: u8,
-    pub Hidden: u8,
-    Reserved: u8,
+    pub MayOverwritten: B1,
+    pub Hidden: B1,
+    Reserved: B6,
 }
 
 //
@@ -1753,7 +1673,8 @@ pub enum NVME_ASYNC_EVENT_TYPE_VENDOR_SPECIFIC_CODES {
     NVME_ASYNC_EVENT_TYPE_VENDOR_SPECIFIC_DEVICE_PANIC = 1,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_WCS_DEVICE_RESET_ACTION {
     pub ControllerReset: bool,
@@ -1762,14 +1683,16 @@ pub struct NVME_WCS_DEVICE_RESET_ACTION {
     pub PERST: bool,
     pub PowerCycle: bool,
     pub PCIeConventionalHotReset: bool,
-    pub Reserved: u8,
+    pub Reserved: B2,
 }
-#[repr(C)]
+
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_WCS_DEVICE_CAPABILITIES {
     pub PanicAEN: bool,
     pub PanicCFS: bool,
-    pub Reserved: u32,
+    pub Reserved: B30,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1945,13 +1868,14 @@ pub struct NVME_CDW10_CREATE_IO_QUEUE {
     pub QSIZE: u16, // Queue Size (QSIZE)
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_CREATE_IO_CQ {
     pub PC: bool,   // Physically Contiguous (PC)
     pub IEN: bool,  // Interrupts Enabled (IEN)
-    Reserved0: u16, // Reserved
-    pub IV: u16,    // Interrupt Vector (IV)
+    Reserved0: B14, // Reserved
+    pub IV: B16,    // Interrupt Vector (IV)
 }
 
 //
@@ -1965,13 +1889,14 @@ pub enum NVME_NVM_QUEUE_PRIORITIES {
     NVME_NVM_QUEUE_PRIORITY_LOW = 3,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_CREATE_IO_SQ {
     pub PC: bool,   // Physically Contiguous (PC)
-    pub QPRIO: u8,  // Queue Priority (QPRIO)
-    Reserved0: u16, // Reserved
-    pub CQID: u16,  // Completion Queue Identifier (CQID)
+    pub QPRIO: B2,  // Queue Priority (QPRIO)
+    Reserved0: B13, // Reserved
+    pub CQID: B16,  // Completion Queue Identifier (CQID)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1982,172 +1907,152 @@ pub enum NVME_FEATURE_VALUE_CODES {
     NVME_FEATURE_VALUE_SUPPORTED_CAPABILITIES = 3,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_GET_FEATURES {
-    #[bits(8)]
-    pub FID: u32, // Feature Identifier (FID)
-    #[bits(3)]
-    pub SEL: u32, // Select (SEL): This field specifies which value of the attributes to return in the provided data.
-    #[bits(21)]
-    Reserved0: u32,
+    pub FID: B8, // Feature Identifier (FID)
+    pub SEL: B3, // Select (SEL): This field specifies which value of the attributes to return in the provided data.
+    pub Reserved0: B21,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_SET_FEATURES {
-    #[bits(8)]
-    pub FID: u32, // Feature Identifier (FID)
-    #[bits(23)]
-    pub Reserved0: u32,
-    #[bits(1)]
-    pub SV: u32, // Save (SV)
+    pub FID: B8, // Feature Identifier (FID)
+    pub Reserved0: B23,
+    pub SV: B1, // Save (SV)
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_NUMBER_OF_QUEUES {
-    #[bits(16)]
-    pub NSQ: u32, // Number of IO Submission Queues.
-    #[bits(16)]
-    pub NCQ: u32, // Number of IO Completion Queues.
+    pub NSQ: B16, // Number of IO Submission Queues.
+    pub NCQ: B16, // Number of IO Completion Queues.
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_INTERRUPT_COALESCING {
-    #[bits(8)]
-    pub THR: u32, // Aggregation Threshold (THR)
-    #[bits(8)]
-    pub TIME: u32, // Aggregation Time (TIME)
-    #[bits(16)]
-    Reserved0: u32,
+    pub THR: B8,  // Aggregation Threshold (THR)
+    pub TIME: B8, // Aggregation Time (TIME)
+    pub Reserved0: B16,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_INTERRUPT_VECTOR_CONFIG {
-    #[bits(16)]
-    pub IV: u32, // Interrupt Vector (IV)
-    #[bits(1)]
-    pub CD: u32, // Coalescing Disabled (CD)
-    #[bits(15)]
-    Reserved0: u32,
+    pub IV: B16, // Interrupt Vector (IV)
+    pub CD: B1,  // Coalescing Disabled (CD)
+    pub Reserved0: B15,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_WRITE_ATOMICITY_NORMAL {
-    #[bits(1)]
-    pub DN: u32, // Disable Normal (DN)
-    #[bits(31)]
-    Reserved0: u32,
+    pub DN: B1, // Disable Normal (DN)
+    pub Reserved0: B31,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_NON_OPERATIONAL_POWER_STATE {
-    #[bits(1)]
-    pub NOPPME: u32, // Non-Operational Power State Permissive Mode Enable (NOPPME)
-    #[bits(31)]
-    Reserved0: u32,
+    pub NOPPME: B1, // Non-Operational Power State Permissive Mode Enable (NOPPME)
+    pub Reserved0: B31,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_LBA_RANGE_TYPE {
-    #[bits(6)]
-    pub NUM: u32, // Number of LBA Ranges (NUM)
-    #[bits(26)]
-    Reserved0: u32,
+    pub NUM: B6, // Number of LBA Ranges (NUM)
+    pub Reserved0: B26,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_ARBITRATION {
-    #[bits(3)]
-    pub AB: u32, // Arbitration Burst (AB)
-    #[bits(5)]
-    Reserved0: u32,
-    #[bits(8)]
-    pub LPW: u32, // Low Priority Weight (LPW)
-    #[bits(8)]
-    pub MPW: u32, // Medium Priority Weight (MPW)
-    #[bits(8)]
-    pub HPW: u32, // High Priority Weight (HPW)
+    pub AB: B3, // Arbitration Burst (AB)
+    pub Reserved0: B5,
+    pub LPW: B8, // Low Priority Weight (LPW)
+    pub MPW: B8, // Medium Priority Weight (MPW)
+    pub HPW: B8, // High Priority Weight (HPW)
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_VOLATILE_WRITE_CACHE {
-    #[bits(1)]
-    pub WCE: u32, // Volatile Write Cache Enable (WCE)
-    #[bits(31)]
-    Reserved0: u32,
+    pub WCE: B1, // Volatile Write Cache Enable (WCE)
+    pub Reserved0: B31,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_SUPPORTED_CAPABILITY {
-    #[bits(1)]
-    pub SAVE: u32, // Save supported
-    #[bits(1)]
-    pub NSS: u32, // Namespace specific
-    #[bits(1)]
-    pub MOD: u32, // Changeable
-    #[bits(29)]
-    Reserved0: u32,
+    pub SAVE: B1, // Save supported
+    pub NSS: B1,  // Namespace specific
+    pub MOD: B1,  // Changeable
+    pub Reserved0: B29,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_ASYNC_EVENT_CONFIG {
-    #[bits(8)]
-    pub CriticalWarnings: u32, // SMART / Health Critical Warnings
-    #[bits(1)]
-    pub NsAttributeNotices: u32, // Namespace Attributes Notices
-    #[bits(1)]
-    pub FwActivationNotices: u32, // Firmware Activation Notices
-    #[bits(1)]
-    pub TelemetryLogNotices: u32, // Telemetry Log Notices
-    #[bits(1)]
-    pub ANAChangeNotices: u32, // Asymmetric Namespace Access Change Notices
-    #[bits(1)]
-    pub PredictableLogChangeNotices: u32, // Predictable Latency Event Aggregate Log Change Notices
-    #[bits(1)]
-    pub LBAStatusNotices: u32, // LBA Status Information Notices
-    #[bits(1)]
-    pub EnduranceEventNotices: u32, // Endurance Group Event Aggregate Log Change Notices
-    #[bits(12)]
-    Reserved0: u32,
-    #[bits(1)]
-    pub ZoneDescriptorNotices: u32, // Zone Descriptor Changed Notices
-    #[bits(4)]
-    Reserved1: u32,
+    pub CriticalWarnings: B8,            // SMART / Health Critical Warnings
+    pub NsAttributeNotices: B1,          // Namespace Attributes Notices
+    pub FwActivationNotices: B1,         // Firmware Activation Notices
+    pub TelemetryLogNotices: B1,         // Telemetry Log Notices
+    pub ANAChangeNotices: B1,            // Asymmetric Namespace Access Change Notices
+    pub PredictableLogChangeNotices: B1, // Predictable Latency Event Aggregate Log Change Notices
+    pub LBAStatusNotices: B1,            // LBA Status Information Notices
+    pub EnduranceEventNotices: B1,       // Endurance Group Event Aggregate Log Change Notices
+    pub Reserved0: B12,
+    pub ZoneDescriptorNotices: B1, // Zone Descriptor Changed Notices
+    pub Reserved1: B4,
 }
 
 //
 // Parameter for NVME_FEATURE_POWER_MANAGEMENT
 //
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_POWER_MANAGEMENT {
-    #[bits(5)]
-    pub PS: u32, // Power State (PS)
-    #[bits(27)]
-    Reserved0: u32, // Reserved
+    pub PS: B5,         // Power State (PS)
+    pub Reserved0: B27, // Reserved
 }
 
 // Parameter for NVME_FEATURE_AUTONOMOUS_POWER_STATE_TRANSITION
 //
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_AUTO_POWER_STATE_TRANSITION {
-    #[bits(1)]
-    pub APSTE: u32, // Autonomous Power State Transition Enable (APSTE)
-    #[bits(31)]
-    Reserved0: u32,
+    pub APSTE: B1, // Autonomous Power State Transition Enable (APSTE)
+    pub Reserved0: B31,
 }
 //
 // Parameter for NVME_FEATURE_AUTONOMOUS_POWER_STATE_TRANSITION
 // There is an array of 32 of these (one for each power state) in the data buffer.
 //
-#[bitfield(u64)]
+#[bitfield]
+#[repr(u64)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_AUTO_POWER_STATE_TRANSITION_ENTRY {
-    #[bits(3)]
-    Reserved0: u32, // Bits 0-2 are reserved.
-    #[bits(5)]
-    pub IdleTransitionPowerState: u32, // Bits 3-7 - (ITPS) The non-operational power state for the controller to autonomously transition to after there is a continuous period of idle time in the current power state that exceeds time specified in the ITPT field.
-    #[bits(24)]
-    pub IdleTimePriorToTransition: u32, // Bits 8-31 - (ITPT) The amount of idle time (in ms) that occurs in this power state prior to transitioning to the Idle Transition Power State. A value of 0 disables APST for this power state.
-    #[bits(32)]
-    Reserved1: u32, // Bits 32-63 are reserved.
+    pub Reserved0: B3,                  // Bits 0-2 are reserved.
+    pub IdleTransitionPowerState: B5, // Bits 3-7 - (ITPS) The non-operational power state for the controller to autonomously transition to after there is a continuous period of idle time in the current power state that exceeds time specified in the ITPT field.
+    pub IdleTimePriorToTransition: B24, // Bits 8-31 - (ITPT) The amount of idle time (in ms) that occurs in this power state prior to transitioning to the Idle Transition Power State. A value of 0 disables APST for this power state.
+    pub Reserved1: B32,                 // Bits 32-63 are reserved.
 }
 
 //
@@ -2163,40 +2068,36 @@ pub enum NVME_TEMPERATURE_THRESHOLD_TYPES {
     NVME_TEMPERATURE_UNDER_THRESHOLD = 1,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_TEMPERATURE_THRESHOLD {
-    #[bits(16)]
-    pub TMPTH: u32, // Temperature Threshold (TMPTH): Indicates the threshold for the temperature of the overall device (controller and NVM included) in units of Kelvin.
-    #[bits(4)]
-    pub TMPSEL: u32, // Threshold Temperature Select (TMPSEL)
-    #[bits(2)]
-    pub THSEL: u32, // Threshold Type Select (THSEL)
-    #[bits(10)]
-    Reserved0: u32, // Reserved
+    pub TMPTH: B16, // Temperature Threshold (TMPTH): Indicates the threshold for the temperature of the overall device (controller and NVM included) in units of Kelvin.
+    pub TMPSEL: B4, // Threshold Temperature Select (TMPSEL)
+    pub THSEL: B2,  // Threshold Type Select (THSEL)
+    pub Reserved0: B10, // Reserved
 }
 
 //
 // Parameter for NVME_FEATURE_ERROR_RECOVERY
 //
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_ERROR_RECOVERY {
-    #[bits(16)]
-    pub TLER: u32, // Time limited error recovery (TLER)
-    #[bits(1)]
-    pub DULBE: u32, // Deallocated or unwritten logical block error enable (DULBE)
-    #[bits(15)]
-    Reserved0: u32, // Reserved
+    pub TLER: B16,      // Time limited error recovery (TLER)
+    pub DULBE: B1,      // Deallocated or unwritten logical block error enable (DULBE)
+    pub Reserved0: B15, // Reserved
 }
 // Parameters for NVME_FEATURE_HOST_MEMORY_BUFFER
 //
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_HOST_MEMORY_BUFFER {
-    #[bits(1)]
-    pub EHM: u32, // Enable Host Memory (EHM) - Enables the host memory buffer.
-    #[bits(1)]
-    pub MR: u32, // Memory Return (MR) - Indicates if the host is returning previously allocated memory to the controller.
-    #[bits(30)]
-    Reserved: u32,
+    pub EHM: B1, // Enable Host Memory (EHM) - Enables the host memory buffer.
+    pub MR: B1, // Memory Return (MR) - Indicates if the host is returning previously allocated memory to the controller.
+    pub Reserved: B30,
 }
 
 #[repr(C)]
@@ -2205,12 +2106,12 @@ pub struct NVME_CDW12_FEATURE_HOST_MEMORY_BUFFER {
     pub HSIZE: u32, // Host Memory Buffer Size (HSIZE) - The size of the host memory buffer in memory page size (CC.MPS) units.
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW13_FEATURE_HOST_MEMORY_BUFFER {
-    #[bits(4)]
-    Reserved: u32,
-    #[bits(28)]
-    pub HMDLLA: u32, // Host Memory Descriptor List Lower Address (HMDLLA) - 16-byte aligned, lower 32 bits of the physical location of the Host Memory Descriptor List.
+    pub Reserved: B4,
+    pub HMDLLA: B28, // Host Memory Descriptor List Lower Address (HMDLLA) - 16-byte aligned, lower 32 bits of the physical location of the Host Memory Descriptor List.
 }
 
 #[repr(C)]
@@ -2236,21 +2137,21 @@ pub struct NVME_HOST_MEMORY_BUFFER_DESCRIPTOR_ENTRY {
     Reserved: u32,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_IO_COMMAND_SET_PROFILE {
-    #[bits(8)]
-    pub IOCSCI: u32, // I/O command Set Profile
-    #[bits(24)]
-    Reserved: u32,
+    pub IOCSCI: B8, // I/O command Set Profile
+    pub Reserved: B24,
 }
 // Parameters for NVME_FEATURE_ENHANDED_CONTROLLER_METADATA, NVME_FEATURE_CONTROLLER_METADATA, NVME_FEATURE_NAMESPACE_METADATA
 //
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_GET_HOST_METADATA {
-    #[bits(8)]
-    pub GDHM: u32, // Generate Default Host Metadata (GDHM)
-    #[bits(24)]
-    Reserved: u32,
+    pub GDHM: B1, // Generate Default Host Metadata (GDHM)
+    pub Reserved: B31,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -2260,14 +2161,13 @@ pub enum NVME_HOST_METADATA_ELEMENT_ACTIONS {
     NVME_HOST_METADATA_ADD_ENTRY_MULTIPLE = 2,
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_SET_HOST_METADATA {
-    #[bits(13)]
-    Reserved0: u32,
-    #[bits(2)]
-    pub EA: u32, // Element Action (EA), value defined in enum NVME_HOST_METADATA_ELEMENT_ACTIONS
-    #[bits(17)]
-    pub Reserved1: u32,
+    pub Reserved0: B13,
+    pub EA: B2, // Element Action (EA), value defined in enum NVME_HOST_METADATA_ELEMENT_ACTIONS
+    pub Reserved1: B17,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -2305,18 +2205,15 @@ pub struct NVME_HOST_METADATA_ELEMENT_DESCRIPTOR {
     pub EVAL: [u8; 0],                                      // Element Value (EVAL), UTF-8 string
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_HOST_METADATA_ELEMENT_DESCRIPTOR_FIELD {
-    #[bits(6)]
-    pub ET: u32, // Element Type (ET), value defined in enum NVME_CONTROLLER_METADATA_ELEMENT_TYPES, NVME_NAMESPACE_METADATA_ELEMENT_TYPES
-    #[bits(2)]
-    Reserved0: u32,
-    #[bits(4)]
-    pub ER: u32, // Element Revision (ER)
-    #[bits(4)]
-    Reserved1: u32,
-    #[bits(16)]
-    pub ELEN: u32, // Element Length (ELEN), element value length in bytes
+    pub ET: B6, // Element Type (ET), value defined in enum NVME_CONTROLLER_METADATA_ELEMENT_TYPES, NVME_NAMESPACE_METADATA_ELEMENT_TYPES
+    pub Reserved0: B2,
+    pub ER: B4, // Element Revision (ER)
+    pub Reserved1: B4,
+    pub ELEN: B16, // Element Length (ELEN), element value length in bytes
 }
 
 #[repr(C)]
@@ -2341,12 +2238,12 @@ impl Default for NVME_FEATURE_HOST_METADATA_DATA {
 // Parameter for NVME_FEATURE_ERROR_INJECTION
 // This is from OCP NVMe Cloud SSD spec.
 //
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_ERROR_INJECTION {
-    #[bits(7)]
-    pub NUM: u32, // Number of Error Injections.
-    #[bits(25)]
-    Reserved0: u32, // Reserved
+    pub NUM: B7,        // Number of Error Injections.
+    pub Reserved0: B25, // Reserved
 }
 
 //
@@ -2361,14 +2258,13 @@ pub struct NVME_ERROR_INJECTION_ENTRY {
     pub ErrorInjectionTypeSpecific: [u8; 28],
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_ERROR_INJECTION_FLAGS {
-    #[bits(1)]
-    pub Enable: u8,
-    #[bits(1)]
-    pub SingleInstance: u8,
-    #[bits(6)]
-    Reserved0: u8,
+    pub Enable: B1,
+    pub SingleInstance: B1,
+    pub Reserved0: B6,
 }
 
 //
@@ -2392,56 +2288,63 @@ pub enum NVME_ERROR_INJECTION_TYPES {
 // Parameter for set feature NVME_FEATURE_CLEAR_FW_UPDATE_HISTORY
 // This is from OCP NVMe Cloud SSD spec.
 //
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_CLEAR_FW_UPDATE_HISTORY {
-    Reserved0: u32,
-    pub Clear: u32, // Clear Firmware Update History Log.
+    Reserved0: B31,
+    pub Clear: B1, // Clear Firmware Update History Log.
 }
 
 // Parameter for set feature NVME_FEATURE_READONLY_WRITETHROUGH_MODE
 // This is from OCP NVMe Cloud SSD spec.
 //
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_READONLY_WRITETHROUGH_MODE {
-    Reserved0: u32,
-    pub EOLBehavior: u32, // End of Life Behavior.
+    Reserved0: B30,
+    pub EOLBehavior: B2, // End of Life Behavior.
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW0_FEATURE_READONLY_WRITETHROUGH_MODE {
-    pub EOLBehavior: u32, // End of Life Behavior.
-    Reserved0: u32,
+    pub EOLBehavior: B3, // End of Life Behavior.
+    Reserved0: B29,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_CLEAR_PCIE_CORRECTABLE_ERROR_COUNTERS {
-    Reserved0: u32,
-    pub Clear: u32, // Clear PCIe Error Counters.
+    Reserved0: B31,
+    pub Clear: B1, // Clear PCIe Error Counters.
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_ENABLE_IEEE1667_SILO {
-    Reserved0: u32,
-    pub Enable: u32, // Enable IEEE1667 Silo.
+    Reserved0: B31,
+    pub Enable: B1, // Enable IEEE1667 Silo.
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW0_FEATURE_ENABLE_IEEE1667_SILO {
-    pub Enabled: u32, // IEEE1667 Silo Enabled.
-    Reserved0: u32,
+    pub Enabled: B3, // IEEE1667 Silo Enabled.
+    Reserved0: B29,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_HOST_IDENTIFIER {
-    pub EXHID: u32, // Enable Extended Host Identifier (EXHID)
-    Reserved: u32,
+    pub EXHID: B1, // Enable Extended Host Identifier (EXHID)
+    Reserved: B31,
 }
 
 #[repr(C)]
@@ -2450,21 +2353,23 @@ pub struct NVME_FEATURE_HOST_IDENTIFIER_DATA {
     pub HOSTID: [u8; 16], // Host Identifier (HOSTID)
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_RESERVATION_PERSISTENCE {
-    pub PTPL: u32, // Persist Through Power Loss (PTPL)
-    Reserved: u32,
+    pub PTPL: B1, // Persist Through Power Loss (PTPL)
+    Reserved: B31,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_FEATURE_RESERVATION_NOTIFICATION_MASK {
-    Reserved: u32,
-    pub REGPRE: u32, // Mask Registration Preempted Notification (REGPRE)
-    pub RESREL: u32, // Mask Reservation Released Notification (RESREL)
-    pub RESPRE: u32, // Mast Reservation Preempted Notification (RESPRE)
-    Reserved1: u32,
+    Reserved: B1,
+    pub REGPRE: B1, // Mask Registration Preempted Notification (REGPRE)
+    pub RESREL: B1, // Mask Reservation Released Notification (RESREL)
+    pub RESPRE: B1, // Mast Reservation Preempted Notification (RESPRE)
+    Reserved1: B28,
 }
 
 #[derive(Clone, Copy)]
@@ -2586,13 +2491,14 @@ pub enum NVME_LOG_PAGES {
 //     fields: NVME_CDW10_GET_LOG_PAGE_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_GET_LOG_PAGE {
-    pub LID: u8, // Log Page Identifier (LID)
-    Reserved0: u8,
-    pub NUMD: u16, // Number of Dwords (NUMD)
-    Reserved1: u8,
+    pub LID: B8, // Log Page Identifier (LID)
+    Reserved0: B8,
+    pub NUMD: B12, // Number of Dwords (NUMD)
+    Reserved1: B4,
 }
 
 //
@@ -2604,14 +2510,15 @@ pub struct NVME_CDW10_GET_LOG_PAGE {
 //     fields: NVME_CDW10_GET_LOG_PAGE_V13_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_GET_LOG_PAGE_V13 {
-    pub LID: u8, // Log Page Identifier (LID)
-    pub LSP: u8, // Log Specific Field (LSP)
-    Reserved0: u8,
-    pub RAE: u8,    // Retain Asynchronous Event (RAE)
-    pub NUMDL: u16, // Number of Lower Dwords (NUMDL)
+    pub LID: B8, // Log Page Identifier (LID)
+    pub LSP: B4, // Log Specific Field (LSP)
+    Reserved0: B3,
+    pub RAE: B1,    // Retain Asynchronous Event (RAE)
+    pub NUMDL: B16, // Number of Lower Dwords (NUMDL)
 }
 
 // #[derive(Clone, Copy)]
@@ -2620,7 +2527,8 @@ pub struct NVME_CDW10_GET_LOG_PAGE_V13 {
 //     fields: NVME_CDW11_GET_LOG_PAGE_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_GET_LOG_PAGE {
     pub NUMDU: u16,                 // Number of Upper Dwords (NUMDU)
@@ -2645,19 +2553,22 @@ pub struct NVME_CDW13_GET_LOG_PAGE {
 //     fields: NVME_CDW14_GET_LOG_PAGE_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW14_GET_LOG_PAGE {
-    pub UUIDIndex: u8, // UUID Index
-    Reserved: u8,
-    pub CommandSetIdentifier: u8, // Command Set Identifier
+    pub UUIDIndex: B7, // UUID Index
+    Reserved: B17,
+    pub CommandSetIdentifier: B8, // Command Set Identifier
 }
 
+#[bitfield]
+#[repr(u16)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_PARAMETER_ERROR_LOCATION {
-    pub Byte: u8, // Byte in command that contained the error.
-    pub Bit: u8,  // Bit in command that contained the error.
-    pub Reserved: u8,
+    pub Byte: B8, // Byte in command that contained the error.
+    pub Bit: B3,  // Bit in command that contained the error.
+    pub Reserved: B5,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -2675,20 +2586,16 @@ pub struct NVME_ERROR_INFO_LOG {
     pub Reserved1: [u8; 24],
 }
 
-#[bitfield(u8)]
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_HEALTH_INFO_LOG_CRITICAL_WARNING {
-    #[bits(1)]
-    pub AvailableSpaceLow: u8, // Available Space Low
-    #[bits(1)]
-    pub TemperatureThreshold: u8, // Temperature Threshold
-    #[bits(1)]
-    pub ReliabilityDegraded: u8, // Reliability Degraded
-    #[bits(1)]
-    pub ReadOnly: u8, // Read Only
-    #[bits(1)]
-    pub VolatileMemoryBackupDeviceFailed: u8, // Volatile Memory Backup Device Failed
-    #[bits(3)]
-    pub Reserved: u8, // Reserved
+    pub AvailableSpaceLow: B1,                // Available Space Low
+    pub TemperatureThreshold: B1,             // Temperature Threshold
+    pub ReliabilityDegraded: B1,              // Reliability Degraded
+    pub ReadOnly: B1,                         // Read Only
+    pub VolatileMemoryBackupDeviceFailed: B1, // Volatile Memory Backup Device Failed
+    pub Reserved: B3,                         // Reserved
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -2804,13 +2711,14 @@ impl Default for NVME_TELEMETRY_CONTROLLER_INITIATED_LOG {
 //
 // Information of log: NVME_LOG_PAGE_FIRMWARE_SLOT_INFO. Size: 512 bytes
 //
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_FIRMWARE_SLOT_INFO_LOG_AFI {
-    pub ActiveSlot: u8, // Bits 2:0 indicates the firmware slot that contains the actively running firmware revision.
-    Reserved0: u8,
-    pub PendingActivateSlot: u8, // Bits 6:4 indicates the firmware slot that is going to be activated at the next controller reset.
-    Reserved1: u8,
+    pub ActiveSlot: B3, // Bits 2:0 indicates the firmware slot that contains the actively running firmware revision.
+    Reserved0: B1,
+    pub PendingActivateSlot: B3, // Bits 6:4 indicates the firmware slot that is going to be activated at the next controller reset.
+    Reserved1: B1,
 }
 
 #[repr(C)]
@@ -2878,17 +2786,18 @@ pub enum NVME_COMMAND_EFFECT_SUBMISSION_EXECUTION_LIMITS {
 //     fields: NVME_COMMAND_EFFECTS_DATA_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_COMMAND_EFFECTS_DATA {
-    pub CSUPP: u32,     // Command Supported (CSUPP)
-    pub LBCC: u32,      // Logical Block Content Change (LBCC)
-    pub NCC: u32,       // Namespace Capability Change (NCC)
-    pub NIC: u32,       // Namespace Inventory Change (NIC)
-    pub CCC: u32,       // Controller Capability Change (CCC)
-    pub Reserved0: u32, // Reserved
-    pub CSE: u32,       // Command Submission and Execution (CSE)
-    pub Reserved1: u32, // Reserved
+    pub CSUPP: B1,      // Command Supported (CSUPP)
+    pub LBCC: B1,       // Logical Block Content Change (LBCC)
+    pub NCC: B1,        // Namespace Capability Change (NCC)
+    pub NIC: B1,        // Namespace Inventory Change (NIC)
+    pub CCC: B1,        // Controller Capability Change (CCC)
+    pub Reserved0: B11, // Reserved
+    pub CSE: B3,        // Command Submission and Execution (CSE)
+    pub Reserved1: B13, // Reserved
 }
 
 #[derive(Clone, Copy)]
@@ -2912,28 +2821,31 @@ pub struct NVME_DEVICE_SELF_TEST_RESULT_DATA {
     pub VendorSpecific: u16,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_DEVICE_SELF_TEST_RESULT_DATA_Status {
-    pub Result: u8,
-    pub CodeValue: u8,
+    pub Result: B4,
+    pub CodeValue: B4,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_DEVICE_SELF_TEST_RESULT_DATA_ValidDiagnostics {
-    pub NSIDValid: u8,
-    pub FLBAValid: u8,
-    pub SCTValid: u8,
-    pub SCValid: u8,
-    pub Reserved: u8,
+    pub NSIDValid: B1,
+    pub FLBAValid: B1,
+    pub SCTValid: B1,
+    pub SCValid: B1,
+    pub Reserved: B4,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_DEVICE_SELF_TEST_RESULT_DATA_StatusCodeType {
-    pub AdditionalInfo: u8,
-    Reserved: u8,
+    pub AdditionalInfo: B3,
+    Reserved: B5,
 }
 
 #[repr(C)]
@@ -2944,18 +2856,21 @@ pub struct NVME_DEVICE_SELF_TEST_LOG {
     pub Reserved: [u8; 2],
     pub ResultData: [NVME_DEVICE_SELF_TEST_RESULT_DATA; 20],
 }
-#[repr(C)]
+
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_DEVICE_SELF_TEST_LOG_CurrentOperation {
-    pub Status: u8,
-    Reserved: u8,
+    pub Status: B4,
+    Reserved: B4,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_DEVICE_SELF_TEST_LOG_CurrentCompletion {
-    pub CompletePercent: u8,
-    Reserved: u8,
+    pub CompletePercent: B7,
+    Reserved: B1,
 }
 
 #[repr(C)]
@@ -3118,16 +3033,14 @@ pub enum NVME_SANITIZE_OPERATION_STATUS {
     NVME_SANITIZE_OPERATION_SUCCEEDED_WITH_FORCED_DEALLOCATION = 4,
 }
 
-#[bitfield(u16)]
+#[bitfield]
+#[repr(u16)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_SANITIZE_STATUS {
-    #[bits(3)]
-    pub MostRecentSanitizeOperationStatus: u16,
-    #[bits(4)]
-    pub NumberCompletedPassesOfOverwrite: u16,
-    #[bits(1)]
-    pub GlobalDataErased: u16, // Changed from bool to u8 to satisfy repr(C)
-    #[bits(8)]
-    pub Reserved: u16,
+    pub MostRecentSanitizeOperationStatus: B3,
+    pub NumberCompletedPassesOfOverwrite: B4,
+    pub GlobalDataErased: B1, // Changed from bool to u8 to satisfy repr(C)
+    pub Reserved: B8,
 }
 
 #[repr(C)]
@@ -3182,12 +3095,13 @@ pub enum NVME_FIRMWARE_ACTIVATE_ACTIONS {
     NVME_FIRMWARE_ACTIVATE_ACTION_DOWNLOAD_TO_SLOT_AND_ACTIVATE_IMMEDIATE = 3,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_FIRMWARE_ACTIVATE {
-    FS: u32,
-    AA: u32,
-    Reserved: u32,
+    FS: B3,
+    AA: B2,
+    Reserved: B27,
 }
 
 //
@@ -3208,16 +3122,17 @@ pub enum NVME_SECURE_ERASE_SETTINGS {
     NVME_SECURE_ERASE_CRYPTOGRAPHIC = 2,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_FORMAT_NVM {
-    pub LBAF: u32, // LBA Format (LBAF)
-    pub MS: u32,   // Metadata Settings (MS)
-    pub PI: u32,   // Protection Information (PI)
-    pub PIL: u32,  // Protection Information Location (PIL)
-    pub SES: u32,  // Secure Erase Settings (SES)
-    pub ZF: u32,   // Zone Format (ZF)
-    pub Reserved: u32,
+    pub LBAF: B4, // LBA Format (LBAF)
+    pub MS: B1,   // Metadata Settings (MS)
+    pub PI: B3,   // Protection Information (PI)
+    pub PIL: B1,  // Protection Information Location (PIL)
+    pub SES: B3,  // Secure Erase Settings (SES)
+    pub ZF: B2,   // Zone Format (ZF)
+    pub Reserved: B18,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -3240,15 +3155,16 @@ pub enum NVME_SANITIZE_ACTION {
     NVME_SANITIZE_ACTION_START_CRYPTO_ERASE_SANITIZE = 4,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_SANITIZE {
-    pub SANACT: u32, // Sanitize Action (SANACT)
-    pub AUSE: u32,   // Allow Unrestricted Sanitize Exit (AUSE)
-    pub OWPASS: u32, // Overwrite Pass Count (OWPASS)
-    pub OIPBP: u32,  // Overwrite Invert Pattern Between Passes (OIPBP)
-    pub NDAS: u32,   // No Deallocate After Sanitize
-    pub Reserved: u32,
+    pub SANACT: B3, // Sanitize Action (SANACT)
+    pub AUSE: B1,   // Allow Unrestricted Sanitize Exit (AUSE)
+    pub OWPASS: B4, // Overwrite Pass Count (OWPASS)
+    pub OIPBP: B1,  // Overwrite Invert Pattern Between Passes (OIPBP)
+    pub NDAS: B1,   // No Deallocate After Sanitize
+    pub Reserved: B22,
 }
 
 // #[derive(Clone, Copy)]
@@ -3284,11 +3200,12 @@ pub enum NVME_RESERVATION_ACQUIRE_ACTIONS {
     NVME_RESERVATION_ACQUIRE_ACTION_PREEMPT_AND_ABORT = 2,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW0_RESERVATION_PERSISTENCE {
-    pub PTPL: u32, // Persist Through Power Loss (PTPL)
-    Reserved: u32,
+    pub PTPL: B1, // Persist Through Power Loss (PTPL)
+    Reserved: B31,
 }
 
 // #[derive(Clone, Copy)]
@@ -3297,14 +3214,15 @@ pub struct NVME_CDW0_RESERVATION_PERSISTENCE {
 //     fields: NVME_CDW10_RESERVATION_ACQUIRE_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_RESERVATION_ACQUIRE {
-    pub RACQA: u32, // Reservation Acquire Action (RACQA)
-    pub IEKEY: u32, // Ignore Existing Key (IEKEY)
-    Reserved: u32,
-    pub RTYPE: u32, // Reservation Type (RTYPE)
-    Reserved1: u32,
+    pub RACQA: B3, // Reservation Acquire Action (RACQA)
+    pub IEKEY: B1, // Ignore Existing Key (IEKEY)
+    Reserved: B4,
+    pub RTYPE: B8, // Reservation Type (RTYPE)
+    Reserved1: B16,
 }
 
 #[repr(C)]
@@ -3335,13 +3253,14 @@ pub enum NVME_RESERVATION_REGISTER_PTPL_STATE_CHANGES {
 //     fields: NVME_CDW10_RESERVATION_REGISTER_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_RESERVATION_REGISTER {
-    pub RREGA: u32, // Reservation Register Action (RREGA)
-    pub IEKEY: u32, // Ignore Existing Key (IEKEY)
-    Reserved: u32,
-    pub CPTPL: u32, // Change Persist Through Power Loss State (CPTPL)
+    pub RREGA: B3, // Reservation Register Action (RREGA)
+    pub IEKEY: B1, // Ignore Existing Key (IEKEY)
+    Reserved: B26,
+    pub CPTPL: B2, // Change Persist Through Power Loss State (CPTPL)
 }
 
 //
@@ -3366,14 +3285,15 @@ pub enum NVME_RESERVATION_RELEASE_ACTIONS {
 //     fields: NVME_CDW10_RESERVATION_RELEASE_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_RESERVATION_RELEASE {
-    pub RRELA: u32, // Reservation Release Action (RRELA)
-    pub IEKEY: u32, // IgnoreExistingKey (IEKEY)
-    pub Reserved: u32,
-    pub RTYPE: u32, // Reservation Type (RTYPE)
-    pub Reserved1: u32,
+    pub RRELA: B3, // Reservation Release Action (RRELA)
+    pub IEKEY: B1, // IgnoreExistingKey (IEKEY)
+    pub Reserved: B4,
+    pub RTYPE: B8, // Reservation Type (RTYPE)
+    pub Reserved1: B16,
 }
 
 #[repr(C)]
@@ -3394,11 +3314,12 @@ pub struct NVME_CDW10_RESERVATION_REPORT {
     pub NUMD: u32, // Number of Dwords (NUMD), NOTE: 0's based value.
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_RESERVATION_REPORT {
-    pub EDS: u32, // Extended Data Structure (EDS)
-    Reserved: u32,
+    pub EDS: B1, // Extended Data Structure (EDS)
+    Reserved: B31,
 }
 
 #[repr(C, packed)]
@@ -3422,11 +3343,12 @@ pub struct NVME_REGISTERED_CONTROLLER_DATA {
     pub RKEY: u64,       // Reservation Key (RKEY)
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_REGISTERED_CONTROLLER_DATA_RCSTS {
-    pub HoldReservation: u8,
-    Reserved: u8,
+    pub HoldReservation: B1,
+    Reserved: B7,
 }
 
 #[repr(C)]
@@ -3447,11 +3369,12 @@ pub struct NVME_REGISTERED_CONTROLLER_EXTENDED_DATA {
     pub Reserved1: [u8; 32],
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_REGISTERED_CONTROLLER_EXTENDED_DATA_RCSTS {
-    pub HoldReservation: u8,
-    pub Reserved: u8,
+    pub HoldReservation: B1,
+    pub Reserved: B7,
 }
 
 #[repr(C)]
@@ -3497,12 +3420,13 @@ pub struct NVME_CDW10_DIRECTIVE_RECEIVE {
 //     fields: NVME_CDW11_DIRECTIVE_RECEIVE_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_DIRECTIVE_RECEIVE {
-    pub DOPER: u32, // Directive Operation
-    pub DTYPE: u32, // Directive Type
-    pub DSPEC: u32, // Directive Specific
+    pub DOPER: B8,  // Directive Operation
+    pub DTYPE: B8,  // Directive Type
+    pub DSPEC: B16, // Directive Specific
 }
 
 #[repr(C)]
@@ -3517,12 +3441,13 @@ pub struct NVME_CDW10_DIRECTIVE_SEND {
 //     fields: NVME_CDW11_DIRECTIVE_SEND_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_DIRECTIVE_SEND {
-    pub DOPER: u32, // Directive Operation
-    pub DTYPE: u32, // Directive Type
-    pub DSPEC: u32, // Directive Specific
+    pub DOPER: B8,  // Directive Operation
+    pub DTYPE: B8,  // Directive Type
+    pub DSPEC: B16, // Directive Specific
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -3535,13 +3460,14 @@ pub enum NVME_DIRECTIVE_SEND_IDENTIFY_OPERATIONS {
     NVME_DIRECTIVE_SEND_IDENTIFY_OPERATION_ENABLE_DIRECTIVE = 1,
 }
 
-#[repr(C)]
+#[bitfield]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_DIRECTIVE_IDENTIFY_RETURN_PARAMETERS_DESCRIPTOR {
-    pub Identify: u8,
-    pub Streams: u8,
-    Reserved0: u8,
-    Reserved1: [u8; 31],
+    pub Identify: B1,
+    pub Streams: B1,
+    Reserved0: B6,
+    Reserved1: B120,
+    Reserved2: B128,
 }
 
 #[repr(C)]
@@ -3558,13 +3484,14 @@ pub struct NVME_DIRECTIVE_IDENTIFY_RETURN_PARAMETERS {
 //     fields: NVME_CDW12_DIRECTIVE_SEND_IDENTIFY_ENABLE_DIRECTIVE_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW12_DIRECTIVE_SEND_IDENTIFY_ENABLE_DIRECTIVE {
-    pub ENDIR: u32, // Enable Directive
-    Reserved0: u32,
-    pub DTYPE: u32, // Directive Type
-    Reserved1: u32,
+    pub ENDIR: B1, // Enable Directive
+    Reserved0: B7,
+    pub DTYPE: B8, // Directive Type
+    Reserved1: B16,
 }
 
 //
@@ -3650,12 +3577,13 @@ pub union NVME_CDW12_DIRECTIVE_RECEIVE {
 //
 // Parameters for SECURITY SEND / RECEIVE Commands
 //
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_SECURITY_SEND_RECEIVE {
-    Reserved0: u32, // Reserved0
-    pub SPSP: u32,  // SP Specific (SPSP)
-    pub SECP: u32,  // Security Protocol (SECP)
+    Reserved0: B8, // Reserved0
+    pub SPSP: B16, // SP Specific (SPSP)
+    pub SECP: B8,  // Security Protocol (SECP)
 }
 
 #[repr(C)]
@@ -3694,16 +3622,17 @@ pub enum NVME_NVM_COMMANDS {
 //
 // Data structure of CDW12 for Read/Write command
 //
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW12_READ_WRITE {
-    pub NLB: u16, // Number of Logical Blocks (NLB)
-    pub Reserved0: u8,
-    pub DTYPE: u8, // Directive Type (DTYPE)
-    pub Reserved1: u8,
-    pub PRINFO: u8, // Protection Information Field (PRINFO)
-    pub FUA: bool,  // Force Unit Access (FUA)
-    pub LR: bool,   // Limited Retry (LR)
+    pub NLB: B16, // Number of Logical Blocks (NLB)
+    pub Reserved0: B4,
+    pub DTYPE: B4, // Directive Type (DTYPE)
+    pub Reserved1: B2,
+    pub PRINFO: B4, // Protection Information Field (PRINFO)
+    pub FUA: B1,    // Force Unit Access (FUA)
+    pub LR: B1,     // Limited Retry (LR)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -3727,13 +3656,14 @@ pub enum NVME_ACCESS_LATENCIES {
     NVME_ACCESS_LATENCY_LOW = 3,  // Low. Smallest possible latency
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW13_READ_WRITE_DSM {
-    pub AccessFrequency: u8,
-    pub AccessLatency: u8,
-    pub SequentialRequest: bool,
-    pub Incompressible: bool,
+    pub AccessFrequency: B4,
+    pub AccessLatency: B2,
+    pub SequentialRequest: B1,
+    pub Incompressible: B1,
 }
 
 #[repr(C)]
@@ -3761,18 +3691,18 @@ pub struct NVME_CDW15_READ_WRITE {
 //     fields: NVME_CONTEXT_ATTRIBUTES_FIELDS,
 // }
 
-#[repr(C)]
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CONTEXT_ATTRIBUTES {
-    pub AccessFrequency: u32,      // 4 bits
-    pub AccessLatency: u32,        // 2 bits
-    pub Reserved0: u32,            // 2 bits
-    pub SequentialReadRange: u32,  // 1 bit
-    pub SequentialWriteRange: u32, // 1 bit
-    pub WritePrepare: u32,         // 1 bit
-    pub Reserved1: u32,            // 13 bits
-    pub CommandAccessSize: u32,    // 8 bits
+    pub AccessFrequency: B4,      // 4 bits
+    pub AccessLatency: B2,        // 2 bits
+    pub Reserved0: B2,            // 2 bits
+    pub SequentialReadRange: B1,  // 1 bit
+    pub SequentialWriteRange: B1, // 1 bit
+    pub WritePrepare: B1,         // 1 bit
+    pub Reserved1: B13,           // 13 bits
+    pub CommandAccessSize: B8,    // 8 bits
 }
 
 #[repr(C)]
@@ -3789,11 +3719,12 @@ pub struct NVME_LBA_RANGE {
 //     fields: NVME_CDW10_DATASET_MANAGEMENT_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_DATASET_MANAGEMENT {
-    pub NR: u32,   // Number of Ranges (NR)
-    Reserved: u32, // 24 bits
+    pub NR: B8,    // Number of Ranges (NR)
+    Reserved: B24, // 24 bits
 }
 
 // #[repr(C)]
@@ -3803,13 +3734,14 @@ pub struct NVME_CDW10_DATASET_MANAGEMENT {
 //     fields: NVME_CDW11_DATASET_MANAGEMENT_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_DATASET_MANAGEMENT {
-    pub IDR: u32,  // Integral Dataset for Read (IDR)
-    pub IDW: u32,  // Integral Dataset for Write (IDW)
-    pub AD: u32,   // Deallocate (AD)
-    Reserved: u32, // 29 bits
+    pub IDR: B1,   // Integral Dataset for Read (IDR)
+    pub IDW: B1,   // Integral Dataset for Write (IDW)
+    pub AD: B1,    // Deallocate (AD)
+    Reserved: B29, // 29 bits
 }
 
 //
@@ -3828,14 +3760,15 @@ pub struct NVME_ZONE_DESCRIPTOR {
     pub Reserved4: [u8; 32],
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_ZONE_ATTRIBUTE {
-    pub ZFC: bool, // Zone Finished by Controller (ZFC)
-    pub FZR: bool, // Finish Zone Recommended (FZR)
-    pub RZR: bool, // Reset Zone Recommended (RZR)
-    pub Reserved: u8,
-    pub ZDEV: bool, // Zone Descriptor Extension Valid (ZDEV)
+    pub ZFC: B1, // Zone Finished by Controller (ZFC)
+    pub FZR: B1, // Finish Zone Recommended (FZR)
+    pub RZR: B1, // Reset Zone Recommended (RZR)
+    pub Reserved: B4,
+    pub ZDEV: B1, // Zone Descriptor Extension Valid (ZDEV)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -3871,12 +3804,13 @@ pub struct NVME_CDW10_ZONE_MANAGEMENT_SEND {
 //     fields: NVME_CDW13_ZONE_MANAGEMENT_SEND_FIELDS,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW13_ZONE_MANAGEMENT_SEND {
-    pub ZSA: u8,         // Zone Send Action, as defined in NVME_ZONE_SEND_ACTION
-    pub SelectAll: bool, // Select all the zones. SLBA is ignored if set
-    Reserved: u32,
+    pub ZSA: B8,       // Zone Send Action, as defined in NVME_ZONE_SEND_ACTION
+    pub SelectAll: B1, // Select all the zones. SLBA is ignored if set
+    Reserved: B23,
 }
 
 //
@@ -3938,13 +3872,14 @@ pub struct NVME_CDW10_ZONE_MANAGEMENT_RECEIVE {
 //     AsUlong: u32,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW13_ZONE_MANAGEMENT_RECEIVE {
-    pub ZRA: u32,         // Zone Receive Action, as defined in NVME_ZONE_RECEIVE_ACTION
-    pub ZRASpecific: u32, // Zone Receive Action Specific field, as defined in NVME_ZONE_RECEIVE_ACTION_SPECIFIC
-    pub Partial: u32,     // Report Zones and Extended Report Zones: Partial Report
-    Reserved: u32,
+    pub ZRA: B8,         // Zone Receive Action, as defined in NVME_ZONE_RECEIVE_ACTION
+    pub ZRASpecific: B8, // Zone Receive Action Specific field, as defined in NVME_ZONE_RECEIVE_ACTION_SPECIFIC
+    pub Partial: B1,     // Report Zones and Extended Report Zones: Partial Report
+    Reserved: B15,
 }
 
 #[repr(C)]
@@ -3960,15 +3895,16 @@ pub struct NVME_CDW10_ZONE_APPEND {
 //     AsUlong: u32,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW12_ZONE_APPEND {
-    pub NLB: u32, // Number of Logical Blocks (NLB)
-    Reserved: u32,
-    pub PIREMAP: u32, // Protection Information Remap (PIREMAP)
-    pub PRINFO: u32,  // Protection Information Field (PRINFO)
-    pub FUA: u32,     // Force Unit Access (FUA)
-    pub LR: u32,      // Limited Retry(LR)
+    pub NLB: B16, // Number of Logical Blocks (NLB)
+    Reserved: B9,
+    pub PIREMAP: B1, // Protection Information Remap (PIREMAP)
+    pub PRINFO: B4,  // Protection Information Field (PRINFO)
+    pub FUA: B1,     // Force Unit Access (FUA)
+    pub LR: B1,      // Limited Retry(LR)
 }
 
 // #[repr(C)]
@@ -3978,25 +3914,23 @@ pub struct NVME_CDW12_ZONE_APPEND {
 //     AsUlong: u32,
 // }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW15_ZONE_APPEND {
-    pub LBAT: u32,  // Logical Block Application Tag
-    pub LBATM: u32, // Logical Block Application Tag Mask (LBATM)
+    pub LBAT: B16,  // Logical Block Application Tag
+    pub LBATM: B16, // Logical Block Application Tag Mask (LBATM)
 }
 
-#[bitfield(u32)]
+#[bitfield]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_COMMAND_DWORD0 {
-    #[bits(8)]
-    pub OPC: u32, // Opcode (OPC)
-    #[bits(2)]
-    pub FUSE: u32, // Fused Operation (FUSE)
-    #[bits(5)]
-    pub Reserved0: u32,
-    #[bits(1)]
-    pub PSDT: u32, // PRP or SGL for Data Transfer (PSDT)
-    #[bits(16)]
-    pub CID: u32, // Command Identifier (CID)
+    pub OPC: B8,  // Opcode (OPC)
+    pub FUSE: B2, // Fused Operation (FUSE)
+    pub Reserved0: B5,
+    pub PSDT: B1, // PRP or SGL for Data Transfer (PSDT)
+    pub CID: B16, // Command Identifier (CID)
 }
 
 #[repr(C)]
@@ -4006,11 +3940,12 @@ pub enum NVME_FUSED_OPERATION_CODES {
     NVME_FUSED_OPERATION_SECOND_CMD = 2,
 }
 
-#[repr(C)]
+#[bitfield]
+#[repr(u64)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_PRP_ENTRY {
-    pub Reserved0: u64,
-    pub PBAO: u64, // Page Base Address and Offset (PBAO)
+    pub Reserved0: B2,
+    pub PBAO: B62, // Page Base Address and Offset (PBAO)
 }
 
 const NVME_NAMESPACE_ALL: u32 = 0xFFFFFFFF;

@@ -5,7 +5,7 @@ use std::{io, mem::size_of};
 
 impl NVME_COMMAND {
     pub fn opcode(&mut self, opc: u32) -> &mut Self {
-        self.CDW0.set_OPC(opc);
+        self.CDW0.set_OPC(opc as u8);
         self
     }
     pub fn nsid(&mut self, nsid: u32) -> &mut Self {
@@ -93,8 +93,8 @@ impl InboxDriver {
             Err(e) => return Err(e),
         };
         if direction == 0
-            || ncs.SCT() != NVME_STATUS_TYPES::NVME_STATUS_TYPE_GENERIC_COMMAND as u16
-            || ncs.SC() != NVME_STATUS_GENERIC_COMMAND_CODES::NVME_STATUS_SUCCESS_COMPLETION as u16
+            || ncs.SCT() != (NVME_STATUS_TYPES::NVME_STATUS_TYPE_GENERIC_COMMAND as u8)
+            || ncs.SC() != (NVME_STATUS_GENERIC_COMMAND_CODES::NVME_STATUS_SUCCESS_COMPLETION as u8)
         {
             return result;
         }
@@ -165,8 +165,8 @@ impl InboxDriver {
         let ncs =
             self.nvme_send_vsc_admin_passthrough_command(&nc, Some(&mut buffer), Some(&mut dw0))?;
 
-        if ncs.SCT() == NVME_STATUS_TYPES::NVME_STATUS_TYPE_GENERIC_COMMAND as u16
-            && ncs.SC() == NVME_STATUS_GENERIC_COMMAND_CODES::NVME_STATUS_SUCCESS_COMPLETION as u16
+        if ncs.SCT() == (NVME_STATUS_TYPES::NVME_STATUS_TYPE_GENERIC_COMMAND as u8)
+            && ncs.SC() == (NVME_STATUS_GENERIC_COMMAND_CODES::NVME_STATUS_SUCCESS_COMPLETION as u8)
         {
             let _ns_list: Vec<u32> = buffer
                 .chunks_exact(4)
@@ -200,9 +200,9 @@ impl InboxDriver {
     }
 
     pub fn nvme_getfeature(&self, fid: u32, sel: u32) -> io::Result<u32> {
-        let mut cdw10 = NVME_CDW10_GET_FEATURES::default();
-        cdw10.set_FID(fid);
-        cdw10.set_SEL(sel);
+        let cdw10 = NVME_CDW10_GET_FEATURES::new()
+            .with_FID(fid as u8)
+            .with_SEL(sel as u8);
         if let Ok(value) = self.nvme_getfeature_query(cdw10.into(), 0) {
             Ok(value)
         } else {
@@ -211,13 +211,12 @@ impl InboxDriver {
     }
 
     pub fn nvme_setfeature(&self, fid: u32, value: u32) -> io::Result<u32> {
-        let mut cdw10 = NVME_CDW10_SET_FEATURES::default();
-        cdw10.set_FID(fid);
-        cdw10.set_SV(0);
+        let cdw10 = NVME_CDW10_SET_FEATURES::new()
+            .with_FID(fid as u8)
+            .with_SV(0);
         let mut cdw11 = value;
         if fid == 0x6 {
-            let mut wce = NVME_CDW11_FEATURE_VOLATILE_WRITE_CACHE::new();
-            wce.set_WCE(value);
+            let wce = NVME_CDW11_FEATURE_VOLATILE_WRITE_CACHE::new().with_WCE(value as u8);
             cdw11 = wce.into();
         }
         if let Ok(value) = self.nvme_set_features(cdw10.into(), cdw11) {

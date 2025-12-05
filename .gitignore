@@ -1,4 +1,5 @@
 /target
+build/
 *.csv
 *.out
 Cargo.lock

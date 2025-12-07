@@ -20,26 +20,26 @@ pub enum NVME_AMS_OPTION {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CONTROLLER_CAPABILITIES {
     pub MQES: B16, // RO - Maximum Queue Entries Supported (MQES)
-    pub CQR: bool, // RO - Contiguous Queues Required (CQR)
+    pub CQR: B1,   // RO - Contiguous Queues Required (CQR)
 
     // Bit 17, 18 - AMS; RO - Arbitration Mechanism Supported (AMS)
-    pub AMS_WeightedRoundRobinWithUrgent: bool, // Bit 17: Weighted Round Robin with Urgent;
-    pub AMS_VendorSpecific: bool,               // Bit 18: Vendor Specific.
+    pub AMS_WeightedRoundRobinWithUrgent: B1, // Bit 17: Weighted Round Robin with Urgent;
+    pub AMS_VendorSpecific: B1,               // Bit 18: Vendor Specific.
 
     pub Reserved0: B5, // RO - bit 19 ~ 23
     pub TO: B8,        // RO - Timeout (TO)
     pub DSTRD: B4,     // RO - Doorbell Stride (DSTRD)
-    pub NSSRS: bool,   // RO - NVM Subsystem Reset Supported (NSSRS)
+    pub NSSRS: B1,     // RO - NVM Subsystem Reset Supported (NSSRS)
 
     // Bit 37 ~ 44 - CSS; RO - Command Sets Supported (CSS)
-    pub CSS_NVM: bool,        // Bit 37: NVM command set
-    pub CSS_Reserved0: bool,  // Bit 38: Reserved
-    pub CSS_Reserved1: bool,  // Bit 39: Reserved
-    pub CSS_Reserved2: bool,  // Bit 40: Reserved
-    pub CSS_Reserved3: bool,  // Bit 41: Reserved
-    pub CSS_Reserved4: bool,  // Bit 42: Reserved
-    pub CSS_MultipleIo: bool, // Bit 43: One or more IO command sets
-    pub CSS_AdminOnly: bool,  // Bit 44: Only Admin command set (no IO command set)
+    pub CSS_NVM: B1,        // Bit 37: NVM command set
+    pub CSS_Reserved0: B1,  // Bit 38: Reserved
+    pub CSS_Reserved1: B1,  // Bit 39: Reserved
+    pub CSS_Reserved2: B1,  // Bit 40: Reserved
+    pub CSS_Reserved3: B1,  // Bit 41: Reserved
+    pub CSS_Reserved4: B1,  // Bit 42: Reserved
+    pub CSS_MultipleIo: B1, // Bit 43: One or more IO command sets
+    pub CSS_AdminOnly: B1,  // Bit 44: Only Admin command set (no IO command set)
 
     pub Reserved2: B3, // RO - bit 45 ~ 47
     pub MPSMIN: B4,    // RO - Memory Page Size Minimum (MPSMIN)
@@ -110,11 +110,11 @@ pub enum NVME_CSTS_SHST_SHUTDOWN_STATUS {
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CONTROLLER_STATUS {
-    pub RDY: bool,      // RO - Ready (RDY)
-    pub CFS: bool,      // RO - Controller Fatal Status (CFS)
+    pub RDY: B1,        // RO - Ready (RDY)
+    pub CFS: B1,        // RO - Controller Fatal Status (CFS)
     pub SHST: B2,       // RO - Shutdown Status (SHST)
-    pub NSSRO: bool,    // RW1C - NVM Subsystem Reset Occurred (NSSRO)
-    pub PP: bool,       // RO - Processing Paused (PP)
+    pub NSSRO: B1,      // RW1C - NVM Subsystem Reset Occurred (NSSRO)
+    pub PP: B1,         // RO - Processing Paused (PP)
     pub Reserved0: B26, // RO
 }
 
@@ -1677,12 +1677,12 @@ pub enum NVME_ASYNC_EVENT_TYPE_VENDOR_SPECIFIC_CODES {
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_WCS_DEVICE_RESET_ACTION {
-    pub ControllerReset: bool,
-    pub NVMeSubsystemReset: bool,
-    pub PCIeFLR: bool,
-    pub PERST: bool,
-    pub PowerCycle: bool,
-    pub PCIeConventionalHotReset: bool,
+    pub ControllerReset: B1,
+    pub NVMeSubsystemReset: B1,
+    pub PCIeFLR: B1,
+    pub PERST: B1,
+    pub PowerCycle: B1,
+    pub PCIeConventionalHotReset: B1,
     pub Reserved: B2,
 }
 
@@ -1690,8 +1690,8 @@ pub struct NVME_WCS_DEVICE_RESET_ACTION {
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_WCS_DEVICE_CAPABILITIES {
-    pub PanicAEN: bool,
-    pub PanicCFS: bool,
+    pub PanicAEN: B1,
+    pub PanicCFS: B1,
     pub Reserved: B30,
 }
 
@@ -1872,8 +1872,8 @@ pub struct NVME_CDW10_CREATE_IO_QUEUE {
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_CREATE_IO_CQ {
-    pub PC: bool,   // Physically Contiguous (PC)
-    pub IEN: bool,  // Interrupts Enabled (IEN)
+    pub PC: B1,     // Physically Contiguous (PC)
+    pub IEN: B1,    // Interrupts Enabled (IEN)
     Reserved0: B14, // Reserved
     pub IV: B16,    // Interrupt Vector (IV)
 }
@@ -1893,7 +1893,7 @@ pub enum NVME_NVM_QUEUE_PRIORITIES {
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW11_CREATE_IO_SQ {
-    pub PC: bool,   // Physically Contiguous (PC)
+    pub PC: B1,     // Physically Contiguous (PC)
     pub QPRIO: B2,  // Queue Priority (QPRIO)
     Reserved0: B13, // Reserved
     pub CQID: B16,  // Completion Queue Identifier (CQID)
@@ -2214,6 +2214,7 @@ pub struct NVME_HOST_METADATA_ELEMENT_DESCRIPTOR_FIELD {
     pub ER: B4, // Element Revision (ER)
     pub Reserved1: B4,
     pub ELEN: B16, // Element Length (ELEN), element value length in bytes
+                   // pub EVAL: u8,  // Element Value (EVAL), UTF-8 string
 }
 
 #[repr(C)]
@@ -2546,12 +2547,6 @@ pub struct NVME_CDW12_GET_LOG_PAGE {
 pub struct NVME_CDW13_GET_LOG_PAGE {
     pub LPOU: u32, // Log Page Offset Upper (LPOU)
 }
-
-// #[derive(Clone, Copy)]
-// union NVME_CDW14_GET_LOG_PAGE {
-//     bits: u32,
-//     fields: NVME_CDW14_GET_LOG_PAGE_FIELDS,
-// }
 
 #[bitfield]
 #[repr(u32)]
@@ -3302,12 +3297,6 @@ pub struct NVME_RESERVATION_RELEASE_DATA_STRUCTURE {
     pub CRKEY: u64, // Current Reservation Key (CRKEY)
 }
 
-// #[derive(Clone, Copy)]
-// union NVME_CDW10_RESERVATION_REPORT {
-//     bits: u32,
-//     fields: NVME_CDW10_RESERVATION_REPORT_FIELDS,
-// }
-
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_CDW10_RESERVATION_REPORT {
@@ -3434,12 +3423,6 @@ pub struct NVME_CDW11_DIRECTIVE_RECEIVE {
 pub struct NVME_CDW10_DIRECTIVE_SEND {
     pub NUMD: u32, // Number of Dwords (NUMD)
 }
-
-// #[derive(Clone, Copy)]
-// union NVME_CDW11_DIRECTIVE_SEND {
-//     bits: u32,
-//     fields: NVME_CDW11_DIRECTIVE_SEND_FIELDS,
-// }
 
 #[bitfield]
 #[repr(u32)]
@@ -3750,14 +3733,30 @@ pub struct NVME_CDW11_DATASET_MANAGEMENT {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NVME_ZONE_DESCRIPTOR {
-    pub ZT: u8,                  // Zone Type
-    pub ZS: u8,                  // Zone State
+    pub ZT: NVME_ZONE_TYPE,      // Zone Type
+    pub ZS: NVME_ZONE_STATE,     // Zone State
     pub ZA: NVME_ZONE_ATTRIBUTE, // Zone Attribute
     pub Reserved3: [u8; 5],
     pub ZCAP: u64,         // Zone Capacity
     pub ZSLBA: u64,        // Zone Start Logical Block Address
     pub WritePointer: u64, // Current Write pointer of the Zone
     pub Reserved4: [u8; 32],
+}
+
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NVME_ZONE_TYPE {
+    pub ZT: B4, // Zone Type (ZT)
+    pub Reserved: B4,
+}
+
+#[bitfield]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NVME_ZONE_STATE {
+    pub Reserved: B4,
+    pub ZS: B4, // Zone State (ZS)
 }
 
 #[bitfield]
@@ -3797,12 +3796,6 @@ pub enum NVME_ZONE_SEND_ACTION {
 pub struct NVME_CDW10_ZONE_MANAGEMENT_SEND {
     pub SLBA: u64, // Starting LBA (SLBA)
 }
-
-// #[derive(Clone, Copy)]
-// union NVME_CDW13_ZONE_MANAGEMENT_SEND {
-//     bits: u32,
-//     fields: NVME_CDW13_ZONE_MANAGEMENT_SEND_FIELDS,
-// }
 
 #[bitfield]
 #[repr(u32)]
@@ -3906,13 +3899,6 @@ pub struct NVME_CDW12_ZONE_APPEND {
     pub FUA: B1,     // Force Unit Access (FUA)
     pub LR: B1,      // Limited Retry(LR)
 }
-
-// #[repr(C)]
-// #[derive(Clone, Copy)]
-// union NVME_CDW15_ZONE_APPEND {
-//     DUMMYSTRUCTNAME: NVME_CDW15_ZONE_APPEND_FIELDS,
-//     AsUlong: u32,
-// }
 
 #[bitfield]
 #[repr(u32)]

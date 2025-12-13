@@ -7,24 +7,18 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.5.23", features = ["derive"] }
-ipnet = "2.8.0"
 windows-drives = "0.5"
 endian_codec = "0.1.1"
 crossterm = "0.25"
-socket2 = "0.4"
 byte-unit = "4.0.19"
 log = "0.4"
-simplelog = "0.12"
-default-net = "0.17"
 memoffset = "0.6.5"
 scanf = "1.2.1"
 sscanf = "0.4"
 once_cell = "1.16.0"
-bitfield-struct = "0.10"
+modular-bitfield = "0.13.0"
 
 serde = { version = "1.0.130", features = ["derive"] }
-plotly = { version = ">=0.8.0", features = ["plotly_ndarray"] }
-plotters = "0.3.5"
 ndarray = "0.15"
 wmi = "0.7" 
 

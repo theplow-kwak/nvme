@@ -156,9 +156,9 @@ impl<'a> CliManager<'a> {
                     println!("logid: {} - {} {:?}", lid, info.len(), &info[..20 as usize]);
                 }
                 Some(Commands::GetFeature { fid, sel }) => {
-                    let mut cdw10 = NVME_CDW10_GET_FEATURES::default();
-                    cdw10.set_FID(*fid);
-                    cdw10.set_SEL(*sel);
+                    let cdw10 = NVME_CDW10_GET_FEATURES::new()
+                        .with_FID(*fid as u8)
+                        .with_SEL(*sel as u8);
                     let info = device.nvme_getfeature(cdw10.into(), 0).unwrap();
                     print_nvme_get_feature(*fid, info);
                 }

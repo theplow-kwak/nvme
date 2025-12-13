@@ -1438,27 +1438,13 @@ pub struct NVME_SET_ATTRIBUTES_ENTRY {
     pub UnallocatedCapacity: [u8; 16],
     pub Reserved2: [u8; 80],
 }
-impl Default for NVME_SET_ATTRIBUTES_ENTRY {
-    fn default() -> Self {
-        NVME_SET_ATTRIBUTES_ENTRY {
-            Identifier: 0,
-            ENDGID: 0,
-            Reserved1: 0,
-            Random4KBReadTypical: 0,
-            OptimalWriteSize: 0,
-            TotalCapacity: [0; 16],
-            UnallocatedCapacity: [0; 16],
-            Reserved2: [0; 80],
-        }
-    }
-}
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct NVM_SET_LIST {
     pub IdentifierCount: u8,
-    Reserved: [u8; 127],
-    pub Entry: [NVME_SET_ATTRIBUTES_ENTRY; 1],
+    pub Reserved: [u8; 127],
+    pub Entry: Vec<NVME_SET_ATTRIBUTES_ENTRY>,
 }
 
 impl Default for NVM_SET_LIST {
@@ -1466,7 +1452,20 @@ impl Default for NVM_SET_LIST {
         NVM_SET_LIST {
             IdentifierCount: 0,
             Reserved: [0; 127],
-            Entry: [NVME_SET_ATTRIBUTES_ENTRY::default(); 1],
+            Entry: Vec::new(),
+        }
+    }
+}
+
+impl NVM_SET_LIST {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn with_capacity(capacity: usize) -> Self {
+        NVM_SET_LIST {
+            IdentifierCount: 0,
+            Reserved: [0; 127],
+            Entry: Vec::with_capacity(capacity),
         }
     }
 }

@@ -13,6 +13,10 @@ add_executable(${PROJECT_NAME}
     main.cpp
     nvme_device.cpp
     nvme_print.cpp
+    scsi.cpp
+    disk.cpp
+    dev_utils.cpp
+    lib.cpp
 )
 
 # Link against required Windows libraries

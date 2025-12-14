@@ -1,11 +1,13 @@
+#include "dev_utils.h"
+#include "nvme_device.h"
+#include "nvme_print.h"
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <vector>
 #include <optional>
-#include "nvme_device.h"
-#include "nvme_print.h"
 
-// Basic argument parsing to replace clap
+// Extended command set from Rust version
 enum class Command
 {
     None,
@@ -16,31 +18,41 @@ enum class Command
     GetFeature,
     SetFeature,
     GetLog,
+    Create,
+    Delete,
+    Attach,
+    Detach
 };
 
 struct Args
 {
     Command command = Command::None;
-    int disk_number = -1;
+    std::optional<int> disk_number;
+    std::optional<int> bus_number;
     uint32_t nsid = 1;
     uint32_t fid = 0;
     uint32_t sel = 0;
     uint32_t feature_value = 0;
-    uint32_t log_id = 0;
+    std::string log_id;
     bool all_ns = false;
+    int create_size = 0;
 };
 
 void print_usage()
 {
-    std::cout << "Usage: nvme-cpp.exe --disk <num> [command]" << std::endl;
+    std::cout << "Usage: nvme-cpp.exe [--disk <num> | --bus <num>] [command]" << std::endl;
     std::cout << "Commands:" << std::endl;
-    std::cout << "  list                      List NVMe devices" << std::endl;
+    std::cout << "  list                      List NVMe devices and controllers" << std::endl;
     std::cout << "  id-ctrl                   Identify Controller" << std::endl;
     std::cout << "  id-ns [--nsid <id>]       Identify Namespace" << std::endl;
     std::cout << "  list-ns [--all]           List Namespaces" << std::endl;
     std::cout << "  get-feature --fid <id> [--sel <val>]" << std::endl;
     std::cout << "  set-feature --fid <id> --value <val>" << std::endl;
-    std::cout << "  get-log --lid <id>        Get Log Page" << std::endl;
+    std::cout << "  get-log --lid <id_str>    Get Log Page (e.g., 0x02)" << std::endl;
+    std::cout << "  create --size <val>       Rescan controller (emulates create)" << std::endl;
+    std::cout << "  delete                    Remove/delete controller" << std::endl;
+    std::cout << "  attach                    Enable controller" << std::endl;
+    std::cout << "  detach                    Disable controller" << std::endl;
 }
 
 bool parse_args(int argc, char *argv[], Args &args)
@@ -48,83 +60,82 @@ bool parse_args(int argc, char *argv[], Args &args)
     for (int i = 1; i < argc; ++i)
     {
         std::string arg = argv[i];
+
+        // Parameters
         if (arg == "--disk")
         {
-            if (i + 1 < argc)
-            {
-                args.disk_number = std::stoi(argv[++i]);
-            }
+            if (++i < argc)
+                args.disk_number = std::stoi(argv[i]);
+        }
+        else if (arg == "--bus")
+        {
+            if (++i < argc)
+                args.bus_number = std::stoi(argv[i]);
         }
         else if (arg == "--nsid")
         {
-            if (i + 1 < argc)
-            {
-                args.nsid = std::stoul(argv[++i]);
-            }
+            if (++i < argc)
+                args.nsid = std::stoul(argv[i]);
         }
         else if (arg == "--fid")
         {
-            if (i + 1 < argc)
-            {
-                args.fid = std::stoul(argv[++i], nullptr, 0);
-            }
+            if (++i < argc)
+                args.fid = std::stoul(argv[i], nullptr, 0);
         }
         else if (arg == "--sel")
         {
-            if (i + 1 < argc)
-            {
-                args.sel = std::stoul(argv[++i], nullptr, 0);
-            }
+            if (++i < argc)
+                args.sel = std::stoul(argv[i], nullptr, 0);
         }
         else if (arg == "--value")
         {
-            if (i + 1 < argc)
-            {
-                args.feature_value = std::stoul(argv[++i], nullptr, 0);
-            }
+            if (++i < argc)
+                args.feature_value = std::stoul(argv[i], nullptr, 0);
         }
         else if (arg == "--lid")
         {
-            if (i + 1 < argc)
-            {
-                args.log_id = std::stoul(argv[++i], nullptr, 0);
-            }
+            if (++i < argc)
+                args.log_id = argv[i];
         }
         else if (arg == "--all")
         {
             args.all_ns = true;
         }
+        else if (arg == "--size")
+        {
+            if (++i < argc)
+                args.create_size = std::stoi(argv[i]);
+        }
+        // Commands
         else if (arg == "list")
-        {
             args.command = Command::List;
-        }
         else if (arg == "id-ctrl")
-        {
             args.command = Command::IdCtrl;
-        }
         else if (arg == "id-ns")
-        {
             args.command = Command::IdNs;
-        }
         else if (arg == "list-ns")
-        {
             args.command = Command::ListNs;
-        }
         else if (arg == "get-feature")
-        {
             args.command = Command::GetFeature;
-        }
         else if (arg == "set-feature")
-        {
             args.command = Command::SetFeature;
-        }
         else if (arg == "get-log")
-        {
             args.command = Command::GetLog;
-        }
+        else if (arg == "create")
+            args.command = Command::Create;
+        else if (arg == "delete")
+            args.command = Command::Delete;
+        else if (arg == "attach")
+            args.command = Command::Attach;
+        else if (arg == "detach")
+            args.command = Command::Detach;
     }
     return args.command != Command::None;
 }
+
+// Forward declarations for command handlers
+void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk *disk);
+void handle_controller_command(const Args &args, dev_utils::NvmeController *ctrl);
 
 int main(int argc, char *argv[])
 {
@@ -135,133 +146,233 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    dev_utils::NvmeControllerList controller_list;
+    controller_list.enumerate();
+
     if (args.command == Command::List)
     {
-        nvme::NvmeDeviceDiscovery discovery;
-        discovery.enumerate_devices();
-        std::cout << "NVMe Drives:" << std::endl;
-        for (const auto &info : discovery.get_devices())
+        if (!args.bus_number.has_value())
         {
-            std::wcout << L"  PhysicalDrive" << info.physical_drive_number
-                       << L": " << info.model_number
-                       << L" (" << info.serial_number << L")" << std::endl;
+            std::cout << controller_list;
+        }
+        else
+        {
+            if (auto *ctrl = controller_list.by_bus(args.bus_number.value()))
+            {
+                std::cout << *ctrl;
+            }
         }
         return 0;
     }
 
-    if (args.disk_number < 0)
+    // Commands that require a specific device
+    if (!args.disk_number.has_value() && !args.bus_number.has_value())
     {
-        std::cerr << "Error: --disk <num> is required for this command." << std::endl;
+        std::cerr << "Error: --disk <num> or --bus <num> is required for this command." << std::endl;
+        print_usage();
         return 1;
     }
 
-    std::wstring path = L"\\.\PhysicalDrive" + std::to_wstring(args.disk_number);
-    auto device = nvme::NvmeDevice::create(path);
+    if (args.disk_number.has_value())
+    {
+        if (auto *disk = controller_list.by_num(args.disk_number.value()))
+        {
+            handle_disk_command(args, disk);
+        }
+        else
+        {
+            std::cerr << "Error: Disk " << args.disk_number.value() << " not found." << std::endl;
+            return 1;
+        }
+    }
+    else if (args.bus_number.has_value())
+    {
+        if (auto *ctrl = controller_list.by_bus(args.bus_number.value()))
+        {
+            handle_controller_command(args, ctrl);
+        }
+        else
+        {
+            std::cerr << "Error: Controller on bus " << args.bus_number.value() << " not found." << std::endl;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk *disk)
+{
+    auto *device = const_cast<dev_utils::PhysicalDisk *>(disk)->get_driver();
     if (!device)
     {
-        std::cerr << "Error: Could not open NVMe device " << args.disk_number << std::endl;
-        return 1;
+        std::cerr << "Error: Could not get driver for disk " << disk->disk_number() << std::endl;
+        return;
     }
-
-    bool success = false;
 
     switch (args.command)
     {
     case Command::IdCtrl:
     {
-        std::vector<uint8_t> buffer;
-        success = device->nvme_identify_controller(buffer);
-        if (success)
+        if (auto data = device->identify_controller_struct())
         {
-            auto *data = reinterpret_cast<NVME_IDENTIFY_CONTROLLER_DATA *>(buffer.data());
             nvme::print::print_nvme_identify_controller_data(*data);
+        }
+        else
+        {
+            std::cerr << "Identify Controller failed." << std::endl;
         }
         break;
     }
     case Command::IdNs:
     {
-        std::vector<uint8_t> buffer;
-        success = device->nvme_identify_namespace(args.nsid, buffer);
-        if (success)
+        if (auto data = device->identify_namespace_struct(args.nsid))
         {
-            auto *data = reinterpret_cast<NVME_IDENTIFY_NAMESPACE_DATA *>(buffer.data());
             nvme::print::print_nvme_identify_namespace_data(*data);
+        }
+        else
+        {
+            std::cerr << "Identify Namespace failed for NSID " << args.nsid << std::endl;
         }
         break;
     }
-    case Command::ListNs:
+    case Command::GetLog:
     {
-        std::vector<uint8_t> buffer(4096);
-        NVME_CDW10_IDENTIFY cdw10 = {};
-        cdw10.CNS = static_cast<uint8_t>(
-            args.all_ns ? nvme::IdentifyCnsCode::AllocatedNamespaceList : nvme::IdentifyCnsCode::ActiveNamespaces);
-        success = device->nvme_identify_query(cdw10, buffer, 0);
-        if (success)
+        uint32_t lid = 0;
+        if (args.log_id.rfind("0x", 0) == 0)
         {
-            std::vector<uint32_t> ns_list;
-            for (size_t i = 0; i < 1024; ++i)
-            { // NVMe spec lists up to 1024 namespaces
-                uint32_t nsid = *reinterpret_cast<uint32_t *>(buffer.data() + i * 4);
-                if (nsid == 0)
-                    break;
-                ns_list.push_back(nsid);
+            lid = std::stoul(args.log_id.substr(2), nullptr, 16);
+        }
+        else
+        {
+            lid = std::stoul(args.log_id);
+        }
+        std::vector<uint8_t> buffer(4096);
+        if (device->get_log_page(args.nsid, lid, buffer))
+        {
+            std::cout << "Get Log Page (LID: 0x" << std::hex << lid << std::dec << ") success." << std::endl;
+            // Simple hex dump for now
+            for (size_t i = 0; i < 256 && i < buffer.size(); ++i)
+            {
+                if (i % 16 == 0)
+                    std::cout << "\n"
+                              << std::setfill('0') << std::setw(4) << i << ": ";
+                std::cout << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(buffer[i]) << " ";
             }
-            nvme::print::print_nvme_ns_list(ns_list);
+            std::cout << std::dec << std::endl;
+        }
+        else
+        {
+            std::cerr << "Get Log Page failed." << std::endl;
         }
         break;
     }
     case Command::GetFeature:
     {
-        NVME_CDW10_GET_FEATURES cdw10 = {};
-        cdw10.FID = args.fid;
-        cdw10.SEL = args.sel;
         uint32_t result = 0;
-        success = device->nvme_get_feature(cdw10, result);
-        if (success)
+        if (device->get_feature(args.fid, args.sel, 0, result))
         {
             nvme::print::print_nvme_get_feature(args.fid, result);
+        }
+        else
+        {
+            std::cerr << "Get Feature failed." << std::endl;
         }
         break;
     }
     case Command::SetFeature:
     {
         uint32_t result = 0;
-        success = device->nvme_set_feature(args.fid, args.feature_value, result);
-        if (success)
+        if (device->set_feature(args.fid, args.feature_value, result))
         {
             nvme::print::print_nvme_set_feature(args.fid, result);
         }
-        break;
-    }
-    case Command::GetLog:
-    {
-        std::vector<uint8_t> buffer(4096);
-        success = device->nvme_logpage_query(args.log_id, buffer);
-        if (success)
+        else
         {
-            std::cout << "Get Log Page (LID: 0x" << std::hex << args.log_id << std::dec << ") success." << std::endl;
-            // Basic hex dump for now
-            for (size_t i = 0; i < 256 && i < buffer.size(); ++i)
-            {
-                if (i % 16 == 0)
-                    std::cout << std::endl
-                              << std::setfill('0') << std::setw(4) << i << ": ";
-                std::cout << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(buffer[i]) << " " << std::dec;
-            }
-            std::cout << std::endl;
+            std::cerr << "Set Feature failed." << std::endl;
         }
         break;
     }
     default:
-        std::cerr << "Command not implemented yet." << std::endl;
+        std::cout << "This command is not supported when targeting a disk." << std::endl;
         break;
     }
+}
 
-    if (!success)
+void handle_controller_command(const Args &args, dev_utils::NvmeController *ctrl)
+{
+    switch (args.command)
     {
-        std::cerr << "Command failed to execute." << std::endl;
-        return 1;
+    case Command::ListNs:
+    {
+        // Assuming the first disk's driver is representative for controller-wide commands
+        if (ctrl->disks().empty())
+        {
+            std::cerr << "Cannot get driver from controller." << std::endl;
+            break;
+        }
+        auto *driver = const_cast<dev_utils::PhysicalDisk &>(ctrl->disks()[0]).get_driver();
+        if (!driver)
+        {
+            std::cerr << "Cannot get driver from controller." << std::endl;
+            break;
+        }
+        if (auto ns_list = driver->identify_ns_list(0, args.all_ns))
+        {
+            nvme::print::print_nvme_ns_list(*ns_list);
+        }
+        else
+        {
+            std::cerr << "List Namespaces failed." << std::endl;
+        }
+        break;
     }
-
-    return 0;
+    case Command::Create:
+    {
+        std::cout << "Rescanning controller to emulate create..." << std::endl;
+        if (ctrl->rescan())
+            std::cout << "Rescan successful." << std::endl;
+        else
+            std::cerr << "Rescan failed." << std::endl;
+        break;
+    }
+    case Command::Delete:
+    {
+        std::cout << "Removing controller..." << std::endl;
+        if (ctrl->remove())
+            std::cout << "Remove successful." << std::endl;
+        else
+            std::cerr << "Remove failed." << std::endl;
+        break;
+    }
+    case Command::Attach:
+    {
+        std::cout << "Enabling controller..." << std::endl;
+        if (ctrl->enable())
+            std::cout << "Enable successful." << std::endl;
+        else
+            std::cerr << "Enable failed." << std::endl;
+        break;
+    }
+    case Command::Detach:
+    {
+        std::cout << "Disabling controller..." << std::endl;
+        if (ctrl->disable())
+            std::cout << "Disable successful." << std::endl;
+        else
+            std::cerr << "Disable failed." << std::endl;
+        break;
+    }
+    default:
+        // Delegate to disk command handler, using the first disk on the controller
+        if (!ctrl->disks().empty())
+        {
+            handle_disk_command(args, &ctrl->disks()[0]);
+        }
+        else
+        {
+            std::cerr << "No disks on this controller to target for the command." << std::endl;
+        }
+        break;
+    }
 }

@@ -89,6 +89,14 @@ namespace scsi
         sptd.DataTransferLength = static_cast<ULONG>(data_len);
     }
 
+    void SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER::set_buffer(int dir, std::span<const uint8_t> data_src)
+    {
+        sptd.DataIn = static_cast<UCHAR>(dir);
+        // The Windows API expects a non-const pointer. We are promising not to write to it when dir is SCSI_IOCTL_DATA_OUT.
+        sptd.DataBuffer = const_cast<uint8_t *>(data_src.data());
+        sptd.DataTransferLength = static_cast<ULONG>(data_src.size());
+    }
+
     std::ostream &operator<<(std::ostream &os, const SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER &s)
     {
         os << "ScsiPassThrough: ScsiStatus " << static_cast<int>(s.sptd.ScsiStatus)

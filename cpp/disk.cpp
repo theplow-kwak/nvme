@@ -2,6 +2,8 @@
 #include <winioctl.h>
 #include <stdexcept>
 #include <system_error>
+#include <malloc.h> // For _aligned_malloc
+#include <span>
 #include <cstring> // For memcpy
 
 namespace
@@ -193,7 +195,7 @@ namespace disk
         std::cout << "storage_query_property: WriteCacheEnabled = " << static_cast<int>(cache_prop.WriteCacheEnabled) << std::endl;
     }
 
-    size_t Disk::security_recv(uint8_t protocol, uint16_t com_id, std::vector<uint8_t> &buf)
+    size_t Disk::security_recv(uint8_t protocol, uint16_t com_id, std::span<uint8_t> buf)
     {
         scsi::ScsiSecCdb12 cdb(scsi::ScsiOpcode::SECURITY_RECV, protocol, com_id, static_cast<uint32_t>(buf.size()));
         sptdwb_.set_buffer(SCSI_IOCTL_DATA_IN, buf.data(), buf.size());
@@ -203,10 +205,10 @@ namespace disk
         return scsi_pass_through_direct();
     }
 
-    size_t Disk::security_send(uint8_t protocol, uint16_t com_id, const std::vector<uint8_t> &buf)
+    size_t Disk::security_send(uint8_t protocol, uint16_t com_id, std::span<const uint8_t> buf)
     {
         scsi::ScsiSecCdb12 cdb(scsi::ScsiOpcode::SECURITY_SEND, protocol, com_id, static_cast<uint32_t>(buf.size()));
-        sptdwb_.set_buffer(SCSI_IOCTL_DATA_OUT, const_cast<uint8_t *>(buf.data()), buf.size());
+        sptdwb_.set_buffer(SCSI_IOCTL_DATA_OUT, std::span<const uint8_t>(buf));
         sptdwb_.sptd.CdbLength = 12;
         memcpy(sptdwb_.sptd.Cdb, &cdb, sizeof(cdb));
 
@@ -241,12 +243,12 @@ namespace disk
         std::cout << "storage_set_property called." << std::endl;
     }
 
-    size_t Disk::scsi_read(uint64_t offset, std::vector<uint8_t> &buf)
+    size_t Disk::scsi_read(uint64_t offset, std::span<uint8_t> buf)
     {
         if (buf.empty())
             return 0;
-        size_t len = buf.size() - 1;
-        len += SECTOR_SIZE - (len % SECTOR_SIZE);
+
+        size_t len = (buf.size() + SECTOR_SIZE - 1) & ~(SECTOR_SIZE - 1);
         if (len > buf.size())
             len = buf.size(); // Do not overflow buffer
 
@@ -261,12 +263,11 @@ namespace disk
         return scsi_pass_through_direct();
     }
 
-    size_t Disk::scsi_write(const std::vector<uint8_t> &buf)
+    size_t Disk::scsi_write(std::span<const uint8_t> buf)
     {
         if (buf.empty())
             return 0;
-        size_t len = buf.size() - 1;
-        len += SECTOR_SIZE - (len % SECTOR_SIZE);
+        size_t len = (buf.size() + SECTOR_SIZE - 1) & ~(SECTOR_SIZE - 1);
         if (len > buf.size())
             len = buf.size();
 
@@ -289,29 +290,48 @@ namespace disk
         return sptdwb_.sptd.DataTransferLength;
     }
 
-    size_t Disk::read(std::vector<uint8_t> &buf)
+    size_t Disk::read(std::span<uint8_t> buf)
     {
+        if (buf.empty())
+        {
+            return 0;
+        }
+        size_t len = (buf.size() + SECTOR_SIZE - 1) & ~(SECTOR_SIZE - 1);
+        void *aligned_buf = _aligned_malloc(len, SECTOR_SIZE);
+        if (!aligned_buf)
+        {
+            throw std::bad_alloc();
+        }
+
         DWORD bytes_read = 0;
-        BOOL res = ReadFile(handle_, buf.data(), static_cast<DWORD>(buf.size()), &bytes_read, nullptr);
+        BOOL res = ReadFile(handle_, aligned_buf, static_cast<DWORD>(len), &bytes_read, nullptr);
         if (!res)
         {
+            _aligned_free(aligned_buf);
             throw std::system_error(last_error(), std::system_category(), "ReadFile failed");
         }
+        memcpy(buf.data(), aligned_buf, std::min(buf.size(), static_cast<size_t>(bytes_read)));
+        _aligned_free(aligned_buf);
         return bytes_read;
     }
 
-    size_t Disk::write(const std::vector<uint8_t> &buf)
+    size_t Disk::write(std::span<const uint8_t> buf)
     {
         if (buf.empty())
             return 0;
 
-        size_t len = buf.size() - 1;
-        len += SECTOR_SIZE - (len % SECTOR_SIZE);
-        if (len > buf.size())
-            len = buf.size();
+        size_t len = (buf.size() + SECTOR_SIZE - 1) & ~(SECTOR_SIZE - 1);
+        void *aligned_buf = _aligned_malloc(len, SECTOR_SIZE);
+        if (!aligned_buf)
+        {
+            throw std::bad_alloc();
+        }
+        memset(aligned_buf, 0, len);
+        memcpy(aligned_buf, buf.data(), buf.size());
 
         DWORD bytes_written = 0;
-        BOOL res = WriteFile(handle_, buf.data(), static_cast<DWORD>(len), &bytes_written, nullptr);
+        BOOL res = WriteFile(handle_, aligned_buf, static_cast<DWORD>(len), &bytes_written, nullptr);
+        _aligned_free(aligned_buf);
         if (!res)
         {
             throw std::system_error(last_error(), std::system_category(), "WriteFile failed");

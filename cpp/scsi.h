@@ -1,5 +1,8 @@
 #pragma once
 
+// Prevent <windows.h> from defining min() and max() macros,
+// which conflict with std::min and std::max.
+#define NOMINMAX
 #include <windows.h>
 #include <ntddscsi.h>
 #include <cstdint>
@@ -7,6 +10,7 @@
 #include <vector>
 #include <ostream>
 #include <cstddef>
+#include <span>
 
 // From cpp/nvme_define.h - assuming it's available. If not, I'll define it.
 // I see `nvme_define.h` in the file tree. I will assume it contains basic type definitions.
@@ -57,6 +61,7 @@ namespace scsi
 
         void set_buffer(int dir, ScsiDataBuffer &data_src);
         void set_buffer(int dir, void *data_ptr, size_t data_len);
+        void set_buffer(int dir, std::span<const uint8_t> data_src);
     };
 #pragma pack(pop)
 

@@ -1,5 +1,8 @@
 #pragma once
 
+// Prevent <windows.h> from defining min() and max() macros,
+// which conflict with std::min and std::max.
+#define NOMINMAX
 #include "nvme_device.h"
 #include "disk.h"
 
@@ -69,7 +72,7 @@ namespace dev_utils
 
         void inspect();
         void enum_child_disks();
-        PhysicalDisk *by_num(int driveno);
+        const PhysicalDisk *by_num(int driveno) const;
 
         bool enable();
         bool disable();
@@ -105,7 +108,7 @@ namespace dev_utils
         int nsid() const;
         const DevInstance &devinst() const;
 
-        nvme::NvmeDevice *get_driver();
+        nvme::NvmeDevice *get_driver() const;
 
     private:
         PhysicalDisk(DevInstance devinst);
@@ -135,8 +138,8 @@ namespace dev_utils
         NvmeControllerList() = default;
 
         void enumerate();
-        PhysicalDisk *by_num(int driveno);
-        NvmeController *by_bus(int bus);
+        const PhysicalDisk *by_num(int driveno) const;
+        const NvmeController *by_bus(int bus) const;
 
         const std::vector<NvmeController> &controllers() const;
 

@@ -7,6 +7,7 @@
 #include <mutex>
 #include <vector>
 #include <system_error>
+#include <format>
 
 #pragma comment(lib, "Cfgmgr32.lib")
 
@@ -30,23 +31,35 @@ namespace dev_utils
     // --- PciBdf Implementation ---
     std::optional<PciBdf> PciBdf::parse(const std::string &location_info)
     {
-        PciBdf bdf;
-        // "PCI bus 1, device 0, function 0"
-        int matches = sscanf_s(location_info.c_str(), "PCI bus %d, device %d, function %d", &bdf.bus, &bdf.device, &bdf.function);
-        if (matches == 3)
+        // Expected format: "PCI bus 1, device 0, function 0"
+        PciBdf bdf = {};
+        bdf.segment = 0; // Segment is not usually in this string, default to 0
+
+        try
         {
-            // Segment is not usually in this string, default to 0
-            bdf.segment = 0;
+            size_t bus_pos = location_info.find("PCI bus ");
+            size_t dev_pos = location_info.find(", device ");
+            size_t fun_pos = location_info.find(", function ");
+
+            if (bus_pos == std::string::npos || dev_pos == std::string::npos || fun_pos == std::string::npos)
+            {
+                return std::nullopt;
+            }
+
+            bdf.bus = std::stoi(location_info.substr(bus_pos + 8));
+            bdf.device = std::stoi(location_info.substr(dev_pos + 9));
+            bdf.function = std::stoi(location_info.substr(fun_pos + 11));
             return bdf;
         }
-        return std::nullopt;
+        catch (const std::invalid_argument &)
+        {
+            return std::nullopt;
+        }
     }
 
     std::string PciBdf::to_string() const
     {
-        char buffer[20];
-        snprintf(buffer, sizeof(buffer), "%04X:%02X:%02X.%X", segment, bus, device, function);
-        return std::string(buffer);
+        return std::format("{:04X}:{:02X}:{:02X}.{}", segment, bus, device, function);
     }
 
     std::ostream &operator<<(std::ostream &os, const PciBdf &bdf)
@@ -293,7 +306,7 @@ namespace dev_utils
                 }
                 catch (...)
                 {
-                    nsid_ = -1;
+                    // nsid_ will remain -1 if parsing fails
                 }
             }
         }
@@ -328,7 +341,7 @@ namespace dev_utils
     int PhysicalDisk::disk_number() const { return disk_number_; }
     int PhysicalDisk::nsid() const { return nsid_; }
     const DevInstance &PhysicalDisk::devinst() const { return devinst_; }
-    nvme::NvmeDevice *PhysicalDisk::get_driver() { return driver_.get(); }
+    nvme::NvmeDevice *PhysicalDisk::get_driver() const { return driver_.get(); }
 
     std::ostream &operator<<(std::ostream &os, const PhysicalDisk &disk)
     {
@@ -381,7 +394,7 @@ namespace dev_utils
         }
     }
 
-    PhysicalDisk *NvmeController::by_num(int driveno)
+    const PhysicalDisk *NvmeController::by_num(int driveno) const
     {
         for (auto &disk : disks_)
         {
@@ -476,7 +489,7 @@ namespace dev_utils
                   { return a.bdf() < b.bdf(); });
     }
 
-    PhysicalDisk *NvmeControllerList::by_num(int driveno)
+    const PhysicalDisk *NvmeControllerList::by_num(int driveno) const
     {
         for (auto &controller : controllers_)
         {
@@ -488,7 +501,7 @@ namespace dev_utils
         return nullptr;
     }
 
-    NvmeController *NvmeControllerList::by_bus(int bus)
+    const NvmeController *NvmeControllerList::by_bus(int bus) const
     {
         for (auto &controller : controllers_)
         {

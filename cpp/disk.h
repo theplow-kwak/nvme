@@ -1,10 +1,14 @@
 #pragma once
 
+// Prevent <windows.h> from defining min() and max() macros,
+// which conflict with std::min and std::max.
+#define NOMINMAX
 #include "scsi.h"
 #include <windows.h>
 #include <string>
 #include <optional>
 #include <iostream>
+#include <span>
 #include <vector>
 
 namespace disk
@@ -35,16 +39,16 @@ namespace disk
         void storage_query_property();
         void storage_set_property();
 
-        size_t security_recv(uint8_t protocol, uint16_t com_id, std::vector<uint8_t> &buf);
-        size_t security_send(uint8_t protocol, uint16_t com_id, const std::vector<uint8_t> &buf);
+        size_t security_recv(uint8_t protocol, uint16_t com_id, std::span<uint8_t> buf);
+        size_t security_send(uint8_t protocol, uint16_t com_id, std::span<const uint8_t> buf);
         size_t discovery0();
 
-        size_t scsi_read(uint64_t offset, std::vector<uint8_t> &buf);
-        size_t scsi_write(const std::vector<uint8_t> &buf);
+        size_t scsi_read(uint64_t offset, std::span<uint8_t> buf);
+        size_t scsi_write(std::span<const uint8_t> buf);
 
         // Read/WriteFile wrappers
-        size_t read(std::vector<uint8_t> &buf);
-        size_t write(const std::vector<uint8_t> &buf);
+        size_t read(std::span<uint8_t> buf);
+        size_t write(std::span<const uint8_t> buf);
         void flush();
 
         [[nodiscard]] HANDLE get_handle() const;

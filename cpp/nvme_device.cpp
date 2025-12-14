@@ -1,5 +1,4 @@
 #include "nvme_device.h"
-#include "nvme_define.h"
 #include <iostream>
 #include <vector>
 #include <optional>
@@ -7,6 +6,7 @@
 #include <system_error>
 
 #include <SetupAPI.h>
+#include <nvme.h>
 #include <ntddstor.h>
 
 #pragma comment(lib, "SetupAPI.lib")
@@ -20,6 +20,29 @@ namespace nvme
         s.erase(s.find_last_not_of(" \n\r\t\0") + 1);
         s.erase(0, s.find_first_not_of(" \n\r\t\0"));
         return std::wstring(s.begin(), s.end());
+    }
+
+    // Helper to get identify controller data to retrieve firmware revision
+    static std::optional<NVME_IDENTIFY_CONTROLLER_DATA> get_identify_controller_data(HANDLE hDevice)
+    {
+        STORAGE_PROTOCOL_SPECIFIC_DATA protocol_data = {};
+        protocol_data.ProtocolType = ProtocolTypeNvme;
+        protocol_data.DataType = NVMeDataTypeIdentify;
+        protocol_data.ProtocolDataRequestValue = NVME_IDENTIFY_CNS_CONTROLLER;
+
+        std::vector<uint8_t> buffer(sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR) + sizeof(NVME_IDENTIFY_CONTROLLER_DATA));
+        auto *descriptor = reinterpret_cast<STORAGE_PROTOCOL_DATA_DESCRIPTOR *>(buffer.data());
+        descriptor->Version = sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR);
+        descriptor->Size = sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR);
+        memcpy(&descriptor->ProtocolSpecificData, &protocol_data, sizeof(protocol_data));
+
+        DWORD bytesReturned = 0;
+        if (DeviceIoControl(hDevice, IOCTL_STORAGE_QUERY_PROPERTY, buffer.data(), buffer.size(), buffer.data(), buffer.size(), &bytesReturned, nullptr) && bytesReturned >= sizeof(NVME_IDENTIFY_CONTROLLER_DATA))
+        {
+            uint8_t *data = reinterpret_cast<uint8_t *>(descriptor) + descriptor->ProtocolSpecificData.ProtocolDataOffset;
+            return *reinterpret_cast<NVME_IDENTIFY_CONTROLLER_DATA *>(data);
+        }
+        return std::nullopt;
     }
 
     // --- NvmeDeviceInfo & NvmeDeviceDiscovery Implementation (Unchanged) ---
@@ -79,8 +102,11 @@ namespace nvme
                         info.model_number = trim_string((char *)desc + desc->ProductIdOffset, 20);
                     if (desc->SerialNumberOffset > 0)
                         info.serial_number = trim_string((char *)desc + desc->SerialNumberOffset, 40);
-                    if (desc->FirmwareRevisionOffset > 0)
-                        info.firmware_revision = trim_string((char *)desc + desc->FirmwareRevisionOffset, 8);
+                    if (auto identify_data = get_identify_controller_data(hDevice))
+                    {
+                        info.firmware_revision = trim_string(reinterpret_cast<const char *>(identify_data->FR), sizeof(identify_data->FR));
+                    }
+
                     devices_.push_back(std::move(info));
                 }
             }
@@ -111,13 +137,14 @@ namespace nvme
         return (device && device->is_open()) ? std::move(device) : nullptr;
     }
 
-    bool NvmeDevice::is_open() const { return device_handle_ != INVALID_HANDLE_VALUE; }
+    [[nodiscard]] bool NvmeDevice::is_open() const { return device_handle_ != INVALID_HANDLE_VALUE; }
+
     bool NvmeDevice::open()
     {
         if (is_open())
             return true;
         device_handle_ = CreateFileW(path_.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-        return is_open();
+        return device_handle_ != INVALID_HANDLE_VALUE;
     }
     void NvmeDevice::close()
     {
@@ -129,37 +156,37 @@ namespace nvme
     }
 
     // High-level wrappers
-    bool NvmeDevice::identify_controller_raw(std::vector<uint8_t> &buffer)
+    bool NvmeDevice::identify_controller_raw(std::vector<uint8_t> &buffer) const
     {
         return issue_identify_query(NVME_IDENTIFY_CNS_CONTROLLER, 0, buffer);
     }
 
-    bool NvmeDevice::identify_namespace_raw(uint32_t nsid, std::vector<uint8_t> &buffer)
+    bool NvmeDevice::identify_namespace_raw(uint32_t nsid, std::vector<uint8_t> &buffer) const
     {
         return issue_identify_query(NVME_IDENTIFY_CNS_SPECIFIC_NAMESPACE, nsid, buffer);
     }
 
-    std::optional<NVME_IDENTIFY_CONTROLLER_DATA> NvmeDevice::identify_controller_struct()
+    std::optional<NVME_IDENTIFY_CONTROLLER_DATA> NvmeDevice::identify_controller_struct() const
     {
         std::vector<uint8_t> buffer(sizeof(NVME_IDENTIFY_CONTROLLER_DATA));
-        if (identify_controller_raw(buffer))
+        if (identify_controller_raw(buffer) && buffer.size() >= sizeof(NVME_IDENTIFY_CONTROLLER_DATA))
         {
             return *reinterpret_cast<NVME_IDENTIFY_CONTROLLER_DATA *>(buffer.data());
         }
         return std::nullopt;
     }
 
-    std::optional<NVME_IDENTIFY_NAMESPACE_DATA> NvmeDevice::identify_namespace_struct(uint32_t nsid)
+    std::optional<NVME_IDENTIFY_NAMESPACE_DATA> NvmeDevice::identify_namespace_struct(uint32_t nsid) const
     {
         std::vector<uint8_t> buffer(sizeof(NVME_IDENTIFY_NAMESPACE_DATA));
-        if (identify_namespace_raw(nsid, buffer))
+        if (identify_namespace_raw(nsid, buffer) && buffer.size() >= sizeof(NVME_IDENTIFY_NAMESPACE_DATA))
         {
             return *reinterpret_cast<NVME_IDENTIFY_NAMESPACE_DATA *>(buffer.data());
         }
         return std::nullopt;
     }
 
-    bool NvmeDevice::get_feature(uint8_t fid, uint8_t sel, uint32_t cdw11, uint32_t &value)
+    bool NvmeDevice::get_feature(uint8_t fid, uint8_t sel, uint32_t cdw11, uint32_t &value) const
     {
         NVME_CDW10_GET_FEATURES cdw10 = {};
         cdw10.FID = fid;
@@ -169,7 +196,7 @@ namespace nvme
         return issue_get_feature_query(cdw10, cdw11_feat, value);
     }
 
-    bool NvmeDevice::set_feature(uint8_t fid, uint32_t value, uint32_t &result)
+    bool NvmeDevice::set_feature(uint8_t fid, uint32_t value, uint32_t &result) const
     {
         NVME_CDW10_SET_FEATURES cdw10 = {};
         cdw10.FID = fid;
@@ -178,7 +205,7 @@ namespace nvme
         return issue_set_feature_query(cdw10, cdw11, result);
     }
 
-    bool NvmeDevice::get_log_page(uint32_t nsid, uint8_t lid, std::vector<uint8_t> &buffer)
+    bool NvmeDevice::get_log_page(uint32_t nsid, uint8_t lid, std::vector<uint8_t> &buffer) const
     {
         if (buffer.empty())
             buffer.resize(NVME_MAX_LOG_SIZE);
@@ -201,12 +228,12 @@ namespace nvme
         return false;
     }
 
-    std::optional<std::vector<uint32_t>> NvmeDevice::identify_ns_list(uint32_t nsid, bool all)
+    std::optional<std::vector<uint32_t>> NvmeDevice::identify_ns_list(uint32_t nsid, bool all) const
     {
         NVME_COMMAND cmd = {};
         cmd.CDW0.OPC = NVME_ADMIN_COMMAND_IDENTIFY;
         cmd.NSID = nsid;
-        cmd.CDW10 = all ? NVME_IDENTIFY_CNS_ALLOCATED_NAMESPACE_LIST : NVME_IDENTIFY_CNS_ACTIVE_NAMESPACES;
+        cmd.u.IDENTIFY.CDW10.CNS = all ? NVME_IDENTIFY_CNS_ALLOCATED_NAMESPACE_LIST : NVME_IDENTIFY_CNS_ACTIVE_NAMESPACES;
 
         std::vector<uint8_t> buffer(4096, 0);
         uint32_t completion_dw0 = 0;
@@ -226,13 +253,13 @@ namespace nvme
     }
 
     // VSC Methods
-    bool NvmeDevice::send_vsc2_passthrough(uint32_t sub_opcode, uint8_t direction, std::vector<uint8_t> &param_buf, std::vector<uint8_t> &data_buf, uint32_t &completion_dw0, uint32_t nsid)
+    bool NvmeDevice::send_vsc2_passthrough(uint32_t sub_opcode, uint8_t direction, std::vector<uint8_t> &param_buf, std::vector<uint8_t> &data_buf, uint32_t &completion_dw0, uint32_t nsid) const
     {
         NVME_COMMAND nc = {};
         nc.CDW0.OPC = static_cast<uint8_t>(NvmeVscOpcode::Write);
         nc.NSID = nsid;
-        nc.CDW10 = static_cast<uint32_t>(param_buf.size() / sizeof(uint32_t));
-        nc.CDW12 = sub_opcode;
+        nc.u.GENERAL.CDW10 = static_cast<uint32_t>(param_buf.size() / sizeof(uint32_t));
+        nc.u.GENERAL.CDW12 = sub_opcode;
 
         uint16_t status_code = 0;
         bool result = issue_nvme_passthrough(nc, param_buf, false, completion_dw0, status_code);
@@ -246,14 +273,14 @@ namespace nvme
         }
 
         nc.CDW0.OPC = static_cast<uint8_t>(NvmeVscOpcode::None) | direction;
-        nc.CDW10 = static_cast<uint32_t>(data_buf.size() / sizeof(uint32_t));
-        nc.CDW12 = sub_opcode;
-        nc.CDW14 = 1; // Data phase
+        nc.u.GENERAL.CDW10 = static_cast<uint32_t>(data_buf.size() / sizeof(uint32_t));
+        nc.u.GENERAL.CDW12 = sub_opcode;
+        nc.u.GENERAL.CDW14 = 1; // Data phase
 
         return issue_nvme_passthrough(nc, data_buf, direction == 2, completion_dw0, status_code);
     }
 
-    bool NvmeDevice::send_vsc_admin_passthrough(const NVME_COMMAND &admin_cmd, std::vector<uint8_t> &data_buf, uint32_t &completion_dw0)
+    bool NvmeDevice::send_vsc_admin_passthrough(const NVME_COMMAND &admin_cmd, std::vector<uint8_t> &data_buf, uint32_t &completion_dw0) const
     {
         uint8_t direction = admin_cmd.CDW0.OPC & 3;
         if (data_buf.empty())
@@ -282,7 +309,7 @@ namespace nvme
     }
 
     // Low-level IOCTL wrappers
-    bool NvmeDevice::issue_identify_query(uint8_t cns, uint32_t nsid, std::vector<uint8_t> &buffer)
+    bool NvmeDevice::issue_identify_query(uint8_t cns, uint32_t nsid, std::vector<uint8_t> &buffer) const
     {
         if (buffer.size() < NVME_IDENTIFY_BUFFER_SIZE)
             buffer.resize(NVME_IDENTIFY_BUFFER_SIZE);
@@ -305,7 +332,7 @@ namespace nvme
         return false;
     }
 
-    bool NvmeDevice::issue_get_feature_query(NVME_CDW10_GET_FEATURES cdw10, NVME_CDW11_FEATURES cdw11, uint32_t &value)
+    bool NvmeDevice::issue_get_feature_query(NVME_CDW10_GET_FEATURES cdw10, NVME_CDW11_FEATURES cdw11, uint32_t &value) const
     {
         STORAGE_PROTOCOL_SPECIFIC_DATA proto_data = {};
         proto_data.ProtocolType = ProtocolTypeNvme;
@@ -322,7 +349,7 @@ namespace nvme
         return false;
     }
 
-    bool NvmeDevice::issue_set_feature_query(NVME_CDW10_SET_FEATURES cdw10, NVME_CDW11_FEATURES cdw11, uint32_t &result)
+    bool NvmeDevice::issue_set_feature_query(NVME_CDW10_SET_FEATURES cdw10, NVME_CDW11_FEATURES cdw11, uint32_t &result) const
     {
         STORAGE_PROTOCOL_SPECIFIC_DATA proto_data = {};
         proto_data.ProtocolType = ProtocolTypeNvme;
@@ -338,7 +365,7 @@ namespace nvme
         return false;
     }
 
-    bool NvmeDevice::issue_query_property(STORAGE_PROPERTY_ID property_id, STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data, std::vector<uint8_t> &output_buffer)
+    bool NvmeDevice::issue_query_property(STORAGE_PROPERTY_ID property_id, STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data, std::vector<uint8_t> &output_buffer) const
     {
         std::vector<uint8_t> query_buffer(offsetof(STORAGE_PROPERTY_QUERY, AdditionalParameters) + sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
         auto *query = reinterpret_cast<STORAGE_PROPERTY_QUERY *>(query_buffer.data());
@@ -358,7 +385,7 @@ namespace nvme
         return true;
     }
 
-    bool NvmeDevice::issue_set_property(STORAGE_PROPERTY_ID property_id, const STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data)
+    bool NvmeDevice::issue_set_property(STORAGE_PROPERTY_ID property_id, const STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data) const
     {
         std::vector<uint8_t> set_buffer(offsetof(STORAGE_PROPERTY_SET, AdditionalParameters) + sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
         auto *property_set = reinterpret_cast<STORAGE_PROPERTY_SET *>(set_buffer.data());
@@ -371,12 +398,12 @@ namespace nvme
     }
 
     // Raw passthrough command
-    bool NvmeDevice::issue_nvme_passthrough(const NVME_COMMAND &nvme_cmd, std::vector<uint8_t> &data_buffer, bool is_read_command, uint32_t &completion_dw0, uint16_t &status_code)
+    bool NvmeDevice::issue_nvme_passthrough(const NVME_COMMAND &nvme_cmd, std::vector<uint8_t> &data_buffer, bool is_read_command, uint32_t &completion_dw0, uint16_t &status_code) const
     {
         return issue_protocol_command(nvme_cmd, data_buffer.data(), static_cast<DWORD>(data_buffer.size()), is_read_command, completion_dw0, status_code);
     }
 
-    bool NvmeDevice::issue_protocol_command(const NVME_COMMAND &nvme_cmd, void *data_buffer, DWORD data_buffer_size, bool is_read_command, uint32_t &completion_dw0, uint16_t &status_code)
+    bool NvmeDevice::issue_protocol_command(const NVME_COMMAND &nvme_cmd, void *data_buffer, DWORD data_buffer_size, bool is_read_command, uint32_t &completion_dw0, uint16_t &status_code) const
     {
         if (!is_open())
             return false;
@@ -411,7 +438,7 @@ namespace nvme
         if (cmd->ReturnStatus != STORAGE_PROTOCOL_STATUS_SUCCESS)
         {
             auto *error_log = reinterpret_cast<NVME_ERROR_INFO_LOG *>(buffer.data() + cmd->ErrorInfoOffset);
-            status_code = error_log->StatusField;
+            status_code = error_log->Status.AsUshort;
             return false;
         }
         if (is_read_command && data_buffer_size > 0)

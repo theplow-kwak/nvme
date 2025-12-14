@@ -1,16 +1,17 @@
 #pragma once
 
-// #include "nvme_define.h"
 #include <string>
 #include <vector>
 #include <memory>
 #include <optional>
 #include <windows.h>
 #include <winioctl.h>
+#include <nvme.h>
 
 namespace nvme
 {
     // Enums and Constants from nvme_commands.rs
+    constexpr size_t NVME_IDENTIFY_BUFFER_SIZE = 4096;
     constexpr size_t NVME_DATA_BUFFER_SIZE = 4096;
     constexpr uint32_t VS_STD_NVME_CMD_TYPE_READ = 0x83061400;
     constexpr uint32_t VS_STD_NVME_CMD_TYPE_WRITE = 0x83061401;
@@ -65,6 +66,8 @@ namespace nvme
     {
     public:
         NvmeDevice(const NvmeDevice &) = delete;
+        NvmeDevice(NvmeDevice &&other) noexcept;
+        NvmeDevice &operator=(NvmeDevice &&other) noexcept;
         NvmeDevice &operator=(const NvmeDevice &) = delete;
         ~NvmeDevice();
 
@@ -72,21 +75,21 @@ namespace nvme
         bool is_open() const;
 
         // --- High-level command wrappers ---
-        bool identify_controller_raw(std::vector<uint8_t> &buffer);
-        bool identify_namespace_raw(uint32_t nsid, std::vector<uint8_t> &buffer);
+        bool identify_controller_raw(std::vector<uint8_t> &buffer) const;
+        bool identify_namespace_raw(uint32_t nsid, std::vector<uint8_t> &buffer) const;
 
         // Deserializing versions
-        std::optional<NVME_IDENTIFY_CONTROLLER_DATA> identify_controller_struct();
-        std::optional<NVME_IDENTIFY_NAMESPACE_DATA> identify_namespace_struct(uint32_t nsid);
+        std::optional<NVME_IDENTIFY_CONTROLLER_DATA> identify_controller_struct() const;
+        std::optional<NVME_IDENTIFY_NAMESPACE_DATA> identify_namespace_struct(uint32_t nsid) const;
 
         // User-friendly Get/Set Feature
-        bool get_feature(uint8_t fid, uint8_t sel, uint32_t cdw11, uint32_t &value);
-        bool set_feature(uint8_t fid, uint32_t value, uint32_t &result);
+        bool get_feature(uint8_t fid, uint8_t sel, uint32_t cdw11, uint32_t &value) const;
+        bool set_feature(uint8_t fid, uint32_t value, uint32_t &result) const;
 
-        bool get_log_page(uint32_t nsid, uint8_t lid, std::vector<uint8_t> &buffer);
+        bool get_log_page(uint32_t nsid, uint8_t lid, std::vector<uint8_t> &buffer) const;
 
         // Namespace list identification
-        std::optional<std::vector<uint32_t>> identify_ns_list(uint32_t nsid, bool all);
+        std::optional<std::vector<uint32_t>> identify_ns_list(uint32_t nsid, bool all) const;
 
         // --- Vendor-Specific Commands ---
         bool send_vsc2_passthrough(
@@ -95,12 +98,12 @@ namespace nvme
             std::vector<uint8_t> &param_buf,
             std::vector<uint8_t> &data_buf,
             uint32_t &completion_dw0,
-            uint32_t nsid);
+            uint32_t nsid) const;
 
         bool send_vsc_admin_passthrough(
             const NVME_COMMAND &admin_cmd,
             std::vector<uint8_t> &data_buf,
-            uint32_t &completion_dw0);
+            uint32_t &completion_dw0) const;
 
         // --- Raw Passthrough command ---
         bool issue_nvme_passthrough(
@@ -108,7 +111,7 @@ namespace nvme
             std::vector<uint8_t> &data_buffer,
             bool is_read_command,
             uint32_t &completion_dw0,
-            uint16_t &status_code);
+            uint16_t &status_code) const;
 
     private:
         NvmeDevice(std::wstring path);
@@ -117,18 +120,18 @@ namespace nvme
         void close();
 
         // Low-level wrappers from previous step (renamed identify for clarity)
-        bool issue_identify_query(uint8_t cns, uint32_t nsid, std::vector<uint8_t> &buffer);
-        bool issue_get_feature_query(NVME_CDW10_GET_FEATURES cdw10, NVME_CDW11_FEATURES cdw11, uint32_t &value);
-        bool issue_set_feature_query(NVME_CDW10_SET_FEATURES cdw10, NVME_CDW11_FEATURES cdw11, uint32_t &result);
+        bool issue_identify_query(uint8_t cns, uint32_t nsid, std::vector<uint8_t> &buffer) const;
+        bool issue_get_feature_query(NVME_CDW10_GET_FEATURES cdw10, NVME_CDW11_FEATURES cdw11, uint32_t &value) const;
+        bool issue_set_feature_query(NVME_CDW10_SET_FEATURES cdw10, NVME_CDW11_FEATURES cdw11, uint32_t &result) const;
 
         bool issue_query_property(
             STORAGE_PROPERTY_ID property_id,
             STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data,
-            std::vector<uint8_t> &output_buffer);
+            std::vector<uint8_t> &output_buffer) const;
 
         bool issue_set_property(
             STORAGE_PROPERTY_ID property_id,
-            const STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data);
+            const STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data) const;
 
         bool issue_protocol_command(
             const NVME_COMMAND &nvme_cmd,
@@ -136,7 +139,7 @@ namespace nvme
             DWORD data_buffer_size,
             bool is_read_command,
             uint32_t &completion_dw0,
-            uint16_t &status_code);
+            uint16_t &status_code) const;
 
         std::wstring path_;
         HANDLE device_handle_ = INVALID_HANDLE_VALUE;

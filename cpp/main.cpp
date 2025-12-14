@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <stdexcept>
 
 // Extended command set from Rust version
 enum class Command
@@ -23,6 +24,8 @@ enum class Command
     Attach,
     Detach
 };
+
+using enum Command;
 
 struct Args
 {
@@ -65,32 +68,74 @@ bool parse_args(int argc, char *argv[], Args &args)
         if (arg == "--disk")
         {
             if (++i < argc)
-                args.disk_number = std::stoi(argv[i]);
+                try
+                {
+                    args.disk_number = std::stoi(argv[i]);
+                }
+                catch (const std::invalid_argument &)
+                {
+                    return false;
+                }
         }
         else if (arg == "--bus")
         {
             if (++i < argc)
-                args.bus_number = std::stoi(argv[i]);
+                try
+                {
+                    args.bus_number = std::stoi(argv[i]);
+                }
+                catch (const std::invalid_argument &)
+                {
+                    return false;
+                }
         }
         else if (arg == "--nsid")
         {
             if (++i < argc)
-                args.nsid = std::stoul(argv[i]);
+                try
+                {
+                    args.nsid = std::stoul(argv[i]);
+                }
+                catch (const std::invalid_argument &)
+                {
+                    return false;
+                }
         }
         else if (arg == "--fid")
         {
             if (++i < argc)
-                args.fid = std::stoul(argv[i], nullptr, 0);
+                try
+                {
+                    args.fid = std::stoul(argv[i], nullptr, 0);
+                }
+                catch (const std::invalid_argument &)
+                {
+                    return false;
+                }
         }
         else if (arg == "--sel")
         {
             if (++i < argc)
-                args.sel = std::stoul(argv[i], nullptr, 0);
+                try
+                {
+                    args.sel = std::stoul(argv[i], nullptr, 0);
+                }
+                catch (const std::invalid_argument &)
+                {
+                    return false;
+                }
         }
         else if (arg == "--value")
         {
             if (++i < argc)
-                args.feature_value = std::stoul(argv[i], nullptr, 0);
+                try
+                {
+                    args.feature_value = std::stoul(argv[i], nullptr, 0);
+                }
+                catch (const std::invalid_argument &)
+                {
+                    return false;
+                }
         }
         else if (arg == "--lid")
         {
@@ -104,38 +149,66 @@ bool parse_args(int argc, char *argv[], Args &args)
         else if (arg == "--size")
         {
             if (++i < argc)
-                args.create_size = std::stoi(argv[i]);
+                try
+                {
+                    args.create_size = std::stoi(argv[i]);
+                }
+                catch (const std::invalid_argument &)
+                {
+                    return false;
+                }
         }
         // Commands
         else if (arg == "list")
-            args.command = Command::List;
+            args.command = List;
         else if (arg == "id-ctrl")
-            args.command = Command::IdCtrl;
+            args.command = IdCtrl;
         else if (arg == "id-ns")
-            args.command = Command::IdNs;
+            args.command = IdNs;
         else if (arg == "list-ns")
-            args.command = Command::ListNs;
+            args.command = ListNs;
         else if (arg == "get-feature")
-            args.command = Command::GetFeature;
+            args.command = GetFeature;
         else if (arg == "set-feature")
-            args.command = Command::SetFeature;
+            args.command = SetFeature;
         else if (arg == "get-log")
-            args.command = Command::GetLog;
+            args.command = GetLog;
         else if (arg == "create")
-            args.command = Command::Create;
+            args.command = Create;
         else if (arg == "delete")
-            args.command = Command::Delete;
+            args.command = Delete;
         else if (arg == "attach")
-            args.command = Command::Attach;
+            args.command = Attach;
         else if (arg == "detach")
-            args.command = Command::Detach;
+            args.command = Detach;
+        else
+        {
+            // Unknown argument
+            return false;
+        }
     }
-    return args.command != Command::None;
+
+    // Validate required arguments for specific commands
+    switch (args.command)
+    {
+    case GetFeature:
+        return args.fid != 0;
+    case SetFeature:
+        return args.fid != 0 && args.feature_value != 0;
+    case GetLog:
+        return !args.log_id.empty();
+    case Create:
+        return args.create_size > 0;
+    case None:
+        return false;
+    default:
+        return true;
+    }
 }
 
 // Forward declarations for command handlers
-void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk *disk);
-void handle_controller_command(const Args &args, dev_utils::NvmeController *ctrl);
+void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk);
+void handle_controller_command(const Args &args, const dev_utils::NvmeController &ctrl);
 
 int main(int argc, char *argv[])
 {
@@ -149,7 +222,7 @@ int main(int argc, char *argv[])
     dev_utils::NvmeControllerList controller_list;
     controller_list.enumerate();
 
-    if (args.command == Command::List)
+    if (args.command == List)
     {
         if (!args.bus_number.has_value())
         {
@@ -177,7 +250,7 @@ int main(int argc, char *argv[])
     {
         if (auto *disk = controller_list.by_num(args.disk_number.value()))
         {
-            handle_disk_command(args, disk);
+            handle_disk_command(args, *disk);
         }
         else
         {
@@ -189,7 +262,7 @@ int main(int argc, char *argv[])
     {
         if (auto *ctrl = controller_list.by_bus(args.bus_number.value()))
         {
-            handle_controller_command(args, ctrl);
+            handle_controller_command(args, *ctrl);
         }
         else
         {
@@ -201,18 +274,18 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk *disk)
+void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
 {
-    auto *device = const_cast<dev_utils::PhysicalDisk *>(disk)->get_driver();
+    auto *device = disk.get_driver();
     if (!device)
     {
-        std::cerr << "Error: Could not get driver for disk " << disk->disk_number() << std::endl;
+        std::cerr << "Error: Could not get driver for disk " << disk.disk_number() << std::endl;
         return;
     }
 
     switch (args.command)
     {
-    case Command::IdCtrl:
+    case IdCtrl:
     {
         if (auto data = device->identify_controller_struct())
         {
@@ -224,7 +297,7 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk *disk)
         }
         break;
     }
-    case Command::IdNs:
+    case IdNs:
     {
         if (auto data = device->identify_namespace_struct(args.nsid))
         {
@@ -236,16 +309,24 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk *disk)
         }
         break;
     }
-    case Command::GetLog:
+    case GetLog:
     {
         uint32_t lid = 0;
-        if (args.log_id.rfind("0x", 0) == 0)
+        try
         {
-            lid = std::stoul(args.log_id.substr(2), nullptr, 16);
+            if (args.log_id.starts_with("0x") || args.log_id.starts_with("0X"))
+            {
+                lid = std::stoul(args.log_id.substr(2), nullptr, 16);
+            }
+            else
+            {
+                lid = std::stoul(args.log_id);
+            }
         }
-        else
+        catch (const std::invalid_argument &e)
         {
-            lid = std::stoul(args.log_id);
+            std::cerr << "Invalid log ID format: " << args.log_id << std::endl;
+            break;
         }
         std::vector<uint8_t> buffer(4096);
         if (device->get_log_page(args.nsid, lid, buffer))
@@ -267,7 +348,7 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk *disk)
         }
         break;
     }
-    case Command::GetFeature:
+    case GetFeature:
     {
         uint32_t result = 0;
         if (device->get_feature(args.fid, args.sel, 0, result))
@@ -280,7 +361,7 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk *disk)
         }
         break;
     }
-    case Command::SetFeature:
+    case SetFeature:
     {
         uint32_t result = 0;
         if (device->set_feature(args.fid, args.feature_value, result))
@@ -299,19 +380,19 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk *disk)
     }
 }
 
-void handle_controller_command(const Args &args, dev_utils::NvmeController *ctrl)
+void handle_controller_command(const Args &args, const dev_utils::NvmeController &ctrl)
 {
     switch (args.command)
     {
-    case Command::ListNs:
+    case ListNs:
     {
         // Assuming the first disk's driver is representative for controller-wide commands
-        if (ctrl->disks().empty())
+        if (ctrl.disks().empty())
         {
             std::cerr << "Cannot get driver from controller." << std::endl;
             break;
         }
-        auto *driver = const_cast<dev_utils::PhysicalDisk &>(ctrl->disks()[0]).get_driver();
+        const auto *driver = ctrl.disks()[0].get_driver();
         if (!driver)
         {
             std::cerr << "Cannot get driver from controller." << std::endl;
@@ -327,37 +408,37 @@ void handle_controller_command(const Args &args, dev_utils::NvmeController *ctrl
         }
         break;
     }
-    case Command::Create:
+    case Create:
     {
         std::cout << "Rescanning controller to emulate create..." << std::endl;
-        if (ctrl->rescan())
+        if (const_cast<dev_utils::NvmeController &>(ctrl).rescan())
             std::cout << "Rescan successful." << std::endl;
         else
             std::cerr << "Rescan failed." << std::endl;
         break;
     }
-    case Command::Delete:
+    case Delete:
     {
         std::cout << "Removing controller..." << std::endl;
-        if (ctrl->remove())
+        if (const_cast<dev_utils::NvmeController &>(ctrl).remove())
             std::cout << "Remove successful." << std::endl;
         else
             std::cerr << "Remove failed." << std::endl;
         break;
     }
-    case Command::Attach:
+    case Attach:
     {
         std::cout << "Enabling controller..." << std::endl;
-        if (ctrl->enable())
+        if (const_cast<dev_utils::NvmeController &>(ctrl).enable())
             std::cout << "Enable successful." << std::endl;
         else
             std::cerr << "Enable failed." << std::endl;
         break;
     }
-    case Command::Detach:
+    case Detach:
     {
         std::cout << "Disabling controller..." << std::endl;
-        if (ctrl->disable())
+        if (const_cast<dev_utils::NvmeController &>(ctrl).disable())
             std::cout << "Disable successful." << std::endl;
         else
             std::cerr << "Disable failed." << std::endl;
@@ -365,9 +446,9 @@ void handle_controller_command(const Args &args, dev_utils::NvmeController *ctrl
     }
     default:
         // Delegate to disk command handler, using the first disk on the controller
-        if (!ctrl->disks().empty())
+        if (!ctrl.disks().empty())
         {
-            handle_disk_command(args, &ctrl->disks()[0]);
+            handle_disk_command(args, const_cast<dev_utils::NvmeController &>(ctrl).disks()[0]);
         }
         else
         {

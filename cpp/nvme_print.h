@@ -4,9 +4,6 @@
 #include <cstdint>
 #include <nvme.h>
 
-// Forward-declare standard NVMe structures to avoid full include in header if possible
-// These should be defined in <nvme.h>
-
 namespace nvme
 {
     namespace print

@@ -25,8 +25,6 @@ enum class Command
     Detach
 };
 
-using enum Command;
-
 struct Args
 {
     Command command = Command::None;
@@ -160,27 +158,27 @@ bool parse_args(int argc, char *argv[], Args &args)
         }
         // Commands
         else if (arg == "list")
-            args.command = List;
+            args.command = Command::List;
         else if (arg == "id-ctrl")
-            args.command = IdCtrl;
+            args.command = Command::IdCtrl;
         else if (arg == "id-ns")
-            args.command = IdNs;
+            args.command = Command::IdNs;
         else if (arg == "list-ns")
-            args.command = ListNs;
+            args.command = Command::ListNs;
         else if (arg == "get-feature")
-            args.command = GetFeature;
+            args.command = Command::GetFeature;
         else if (arg == "set-feature")
-            args.command = SetFeature;
+            args.command = Command::SetFeature;
         else if (arg == "get-log")
-            args.command = GetLog;
+            args.command = Command::GetLog;
         else if (arg == "create")
-            args.command = Create;
+            args.command = Command::Create;
         else if (arg == "delete")
-            args.command = Delete;
+            args.command = Command::Delete;
         else if (arg == "attach")
-            args.command = Attach;
+            args.command = Command::Attach;
         else if (arg == "detach")
-            args.command = Detach;
+            args.command = Command::Detach;
         else
         {
             // Unknown argument
@@ -191,15 +189,15 @@ bool parse_args(int argc, char *argv[], Args &args)
     // Validate required arguments for specific commands
     switch (args.command)
     {
-    case GetFeature:
+    case Command::GetFeature:
         return args.fid != 0;
-    case SetFeature:
+    case Command::SetFeature:
         return args.fid != 0 && args.feature_value != 0;
-    case GetLog:
+    case Command::GetLog:
         return !args.log_id.empty();
-    case Create:
+    case Command::Create:
         return args.create_size > 0;
-    case None:
+    case Command::None:
         return false;
     default:
         return true;
@@ -222,7 +220,7 @@ int main(int argc, char *argv[])
     dev_utils::NvmeControllerList controller_list;
     controller_list.enumerate();
 
-    if (args.command == List)
+    if (args.command == Command::List)
     {
         if (!args.bus_number.has_value())
         {
@@ -285,7 +283,7 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
 
     switch (args.command)
     {
-    case IdCtrl:
+    case Command::IdCtrl:
     {
         if (auto data = device->identify_controller_struct())
         {
@@ -297,7 +295,7 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
         }
         break;
     }
-    case IdNs:
+    case Command::IdNs:
     {
         if (auto data = device->identify_namespace_struct(args.nsid))
         {
@@ -309,7 +307,7 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
         }
         break;
     }
-    case GetLog:
+    case Command::GetLog:
     {
         uint32_t lid = 0;
         try
@@ -348,7 +346,7 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
         }
         break;
     }
-    case GetFeature:
+    case Command::GetFeature:
     {
         uint32_t result = 0;
         if (device->get_feature(args.fid, args.sel, 0, result))
@@ -361,7 +359,7 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
         }
         break;
     }
-    case SetFeature:
+    case Command::SetFeature:
     {
         uint32_t result = 0;
         if (device->set_feature(args.fid, args.feature_value, result))
@@ -384,9 +382,9 @@ void handle_controller_command(const Args &args, const dev_utils::NvmeController
 {
     switch (args.command)
     {
-    case ListNs:
+    case Command::ListNs:
     {
-        // Assuming the first disk's driver is representative for controller-wide commands
+        // The first disk's driver is representative for controller-wide commands
         if (ctrl.disks().empty())
         {
             std::cerr << "Cannot get driver from controller." << std::endl;
@@ -408,7 +406,7 @@ void handle_controller_command(const Args &args, const dev_utils::NvmeController
         }
         break;
     }
-    case Create:
+    case Command::Create:
     {
         std::cout << "Rescanning controller to emulate create..." << std::endl;
         if (const_cast<dev_utils::NvmeController &>(ctrl).rescan())
@@ -417,7 +415,7 @@ void handle_controller_command(const Args &args, const dev_utils::NvmeController
             std::cerr << "Rescan failed." << std::endl;
         break;
     }
-    case Delete:
+    case Command::Delete:
     {
         std::cout << "Removing controller..." << std::endl;
         if (const_cast<dev_utils::NvmeController &>(ctrl).remove())
@@ -426,7 +424,7 @@ void handle_controller_command(const Args &args, const dev_utils::NvmeController
             std::cerr << "Remove failed." << std::endl;
         break;
     }
-    case Attach:
+    case Command::Attach:
     {
         std::cout << "Enabling controller..." << std::endl;
         if (const_cast<dev_utils::NvmeController &>(ctrl).enable())
@@ -435,7 +433,7 @@ void handle_controller_command(const Args &args, const dev_utils::NvmeController
             std::cerr << "Enable failed." << std::endl;
         break;
     }
-    case Detach:
+    case Command::Detach:
     {
         std::cout << "Disabling controller..." << std::endl;
         if (const_cast<dev_utils::NvmeController &>(ctrl).disable())

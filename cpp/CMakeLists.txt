@@ -24,7 +24,7 @@ set(SOURCES
     disk.cpp
     lib.cpp
     nvme_device.cpp
-    nvme_print.cpp
+    # nvme_print.cpp
     scsi.cpp
 )
 
@@ -41,5 +41,6 @@ target_link_libraries(${EXECUTABLE_NAME} PRIVATE
 
 # MSVC 컴파일러를 사용할 경우, 경고 수준을 높이고 경고를 오류로 처리하여 코드 품질 향상
 if(MSVC)
-    target_compile_options(${EXECUTABLE_NAME} PRIVATE /W4 /WX)
+    target_compile_options(${EXECUTABLE_NAME} PRIVATE /W2 /WX)
+    target_compile_options(${EXECUTABLE_NAME} PRIVATE /permissive-)
 endif()

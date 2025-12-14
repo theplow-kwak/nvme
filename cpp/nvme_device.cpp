@@ -6,7 +6,6 @@
 #include <system_error>
 
 #include <SetupAPI.h>
-#include <nvme.h>
 #include <ntddstor.h>
 
 #pragma comment(lib, "SetupAPI.lib")
@@ -130,6 +129,29 @@ namespace nvme
     // --- NvmeDevice Implementation (with new methods) ---
     NvmeDevice::NvmeDevice(std::wstring path) : path_(std::move(path)) { open(); }
     NvmeDevice::~NvmeDevice() { close(); }
+
+    NvmeDevice::NvmeDevice(NvmeDevice &&other) noexcept
+        : path_(std::move(other.path_)), device_handle_(other.device_handle_)
+    {
+        // Prevent the moved-from object's destructor from closing the handle
+        other.device_handle_ = INVALID_HANDLE_VALUE;
+    }
+
+    NvmeDevice &NvmeDevice::operator=(NvmeDevice &&other) noexcept
+    {
+        if (this != &other)
+        {
+            // Close our own handle before taking ownership of the other's
+            close();
+
+            path_ = std::move(other.path_);
+            device_handle_ = other.device_handle_;
+
+            // Prevent the moved-from object's destructor from closing the handle
+            other.device_handle_ = INVALID_HANDLE_VALUE;
+        }
+        return *this;
+    }
 
     std::unique_ptr<NvmeDevice> NvmeDevice::create(const std::wstring &path)
     {

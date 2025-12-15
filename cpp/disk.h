@@ -57,7 +57,7 @@ namespace disk
         Disk(const std::string &path, char rw, std::optional<bool> fua, HANDLE handle);
 
         void close();
-        size_t scsi_pass_through_direct();
+        size_t scsi_pass_through_direct(scsi::SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER &sptdwb);
 
         std::string path_;
         char rw_;
@@ -65,7 +65,6 @@ namespace disk
         size_t size_;
         uint8_t lba_shift_;
         uint64_t write_offset_;
-        scsi::SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER sptdwb_;
         std::optional<bool> fua_;
     };
 

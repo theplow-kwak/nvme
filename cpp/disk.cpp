@@ -103,7 +103,6 @@ namespace disk
           size_(get_file_size(handle)),
           lba_shift_(9),
           write_offset_(0),
-          sptdwb_(SCSI_IOCTL_DATA_OUT),
           fua_(fua) {}
 
     Disk::~Disk()
@@ -118,7 +117,6 @@ namespace disk
           size_(other.size_),
           lba_shift_(other.lba_shift_),
           write_offset_(other.write_offset_),
-          sptdwb_(other.sptdwb_),
           fua_(other.fua_)
     {
         other.handle_ = INVALID_HANDLE_VALUE; // Prevent double-close
@@ -135,7 +133,6 @@ namespace disk
             size_ = other.size_;
             lba_shift_ = other.lba_shift_;
             write_offset_ = other.write_offset_;
-            sptdwb_ = other.sptdwb_;
             fua_ = other.fua_;
             other.handle_ = INVALID_HANDLE_VALUE;
         }
@@ -165,9 +162,9 @@ namespace disk
         }
     }
 
-    size_t Disk::scsi_pass_through_direct()
+    size_t Disk::scsi_pass_through_direct(scsi::SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER &sptdwb)
     {
-        return ioctl_wrapper(handle_, IOCTL_SCSI_PASS_THROUGH_DIRECT, &sptdwb_, sizeof(sptdwb_), &sptdwb_, sizeof(sptdwb_));
+        return ioctl_wrapper(handle_, IOCTL_SCSI_PASS_THROUGH_DIRECT, &sptdwb, sizeof(sptdwb), &sptdwb, sizeof(sptdwb));
     }
 
     uint8_t Disk::get_scsi_address()
@@ -197,22 +194,24 @@ namespace disk
 
     size_t Disk::security_recv(uint8_t protocol, uint16_t com_id, std::span<uint8_t> buf)
     {
+        scsi::SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER sptdwb(SCSI_IOCTL_DATA_IN);
         scsi::ScsiSecCdb12 cdb(scsi::ScsiOpcode::SECURITY_RECV, protocol, com_id, static_cast<uint32_t>(buf.size()));
-        sptdwb_.set_buffer(SCSI_IOCTL_DATA_IN, buf.data(), buf.size());
-        sptdwb_.sptd.CdbLength = 12;
-        memcpy(sptdwb_.sptd.Cdb, &cdb, sizeof(cdb));
+        sptdwb.set_buffer(SCSI_IOCTL_DATA_IN, buf.data(), buf.size());
+        sptdwb.sptd.CdbLength = 12;
+        memcpy(sptdwb.sptd.Cdb, &cdb, sizeof(cdb));
 
-        return scsi_pass_through_direct();
+        return scsi_pass_through_direct(sptdwb);
     }
 
     size_t Disk::security_send(uint8_t protocol, uint16_t com_id, std::span<const uint8_t> buf)
     {
+        scsi::SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER sptdwb(SCSI_IOCTL_DATA_OUT);
         scsi::ScsiSecCdb12 cdb(scsi::ScsiOpcode::SECURITY_SEND, protocol, com_id, static_cast<uint32_t>(buf.size()));
-        sptdwb_.set_buffer(SCSI_IOCTL_DATA_OUT, std::span<const uint8_t>(buf));
-        sptdwb_.sptd.CdbLength = 12;
-        memcpy(sptdwb_.sptd.Cdb, &cdb, sizeof(cdb));
+        sptdwb.set_buffer(SCSI_IOCTL_DATA_OUT, std::span<const uint8_t>(buf));
+        sptdwb.sptd.CdbLength = 12;
+        memcpy(sptdwb.sptd.Cdb, &cdb, sizeof(cdb));
 
-        return scsi_pass_through_direct();
+        return scsi_pass_through_direct(sptdwb);
     }
 
     size_t Disk::discovery0()
@@ -255,12 +254,13 @@ namespace disk
         uint64_t lba = offset >> lba_shift_;
         uint32_t nlb = static_cast<uint32_t>(len >> lba_shift_);
 
+        scsi::SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER sptdwb(SCSI_IOCTL_DATA_IN);
         scsi::ScsiRwCdb16 cdb(scsi::ScsiOpcode::READ_16, lba, nlb, 0);
-        sptdwb_.set_buffer(SCSI_IOCTL_DATA_IN, buf.data(), len);
-        sptdwb_.sptd.CdbLength = 16;
-        memcpy(sptdwb_.sptd.Cdb, &cdb, sizeof(cdb));
+        sptdwb.set_buffer(SCSI_IOCTL_DATA_IN, buf.data(), len);
+        sptdwb.sptd.CdbLength = 16;
+        memcpy(sptdwb.sptd.Cdb, &cdb, sizeof(cdb));
 
-        return scsi_pass_through_direct();
+        return scsi_pass_through_direct(sptdwb);
     }
 
     size_t Disk::scsi_write(std::span<const uint8_t> buf)
@@ -280,14 +280,15 @@ namespace disk
             flag = static_cast<uint8_t>(scsi::ScsiCdbFlag::FUA);
         }
 
+        scsi::SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER sptdwb(SCSI_IOCTL_DATA_OUT);
         scsi::ScsiRwCdb16 cdb(scsi::ScsiOpcode::WRITE_16, lba, nlb, flag);
-        sptdwb_.set_buffer(SCSI_IOCTL_DATA_OUT, const_cast<uint8_t *>(buf.data()), len);
-        sptdwb_.sptd.CdbLength = 16;
-        memcpy(sptdwb_.sptd.Cdb, &cdb, sizeof(cdb));
+        sptdwb.set_buffer(SCSI_IOCTL_DATA_OUT, const_cast<uint8_t *>(buf.data()), len);
+        sptdwb.sptd.CdbLength = 16;
+        memcpy(sptdwb.sptd.Cdb, &cdb, sizeof(cdb));
 
-        scsi_pass_through_direct();
-        write_offset_ += sptdwb_.sptd.DataTransferLength;
-        return sptdwb_.sptd.DataTransferLength;
+        scsi_pass_through_direct(sptdwb);
+        write_offset_ += sptdwb.sptd.DataTransferLength;
+        return sptdwb.sptd.DataTransferLength;
     }
 
     size_t Disk::read(std::span<uint8_t> buf)
@@ -297,21 +298,15 @@ namespace disk
             return 0;
         }
         size_t len = (buf.size() + SECTOR_SIZE - 1) & ~(SECTOR_SIZE - 1);
-        void *aligned_buf = _aligned_malloc(len, SECTOR_SIZE);
-        if (!aligned_buf)
-        {
-            throw std::bad_alloc();
-        }
+        scsi::ScsiDataBuffer aligned_buf(len);
 
         DWORD bytes_read = 0;
-        BOOL res = ReadFile(handle_, aligned_buf, static_cast<DWORD>(len), &bytes_read, nullptr);
+        BOOL res = ReadFile(handle_, aligned_buf.data(), static_cast<DWORD>(len), &bytes_read, nullptr);
         if (!res)
         {
-            _aligned_free(aligned_buf);
             throw std::system_error(last_error(), std::system_category(), "ReadFile failed");
         }
-        memcpy(buf.data(), aligned_buf, std::min(buf.size(), static_cast<size_t>(bytes_read)));
-        _aligned_free(aligned_buf);
+        memcpy(buf.data(), aligned_buf.data(), std::min(buf.size(), static_cast<size_t>(bytes_read)));
         return bytes_read;
     }
 
@@ -321,17 +316,12 @@ namespace disk
             return 0;
 
         size_t len = (buf.size() + SECTOR_SIZE - 1) & ~(SECTOR_SIZE - 1);
-        void *aligned_buf = _aligned_malloc(len, SECTOR_SIZE);
-        if (!aligned_buf)
-        {
-            throw std::bad_alloc();
-        }
-        memset(aligned_buf, 0, len);
-        memcpy(aligned_buf, buf.data(), buf.size());
+        scsi::ScsiDataBuffer aligned_buf(len);
+        memset(aligned_buf.data(), 0, len);
+        memcpy(aligned_buf.data(), buf.data(), buf.size());
 
         DWORD bytes_written = 0;
-        BOOL res = WriteFile(handle_, aligned_buf, static_cast<DWORD>(len), &bytes_written, nullptr);
-        _aligned_free(aligned_buf);
+        BOOL res = WriteFile(handle_, aligned_buf.data(), static_cast<DWORD>(len), &bytes_written, nullptr);
         if (!res)
         {
             throw std::system_error(last_error(), std::system_category(), "WriteFile failed");

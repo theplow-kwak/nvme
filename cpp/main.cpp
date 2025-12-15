@@ -205,7 +205,7 @@ bool parse_args(int argc, char *argv[], Args &args)
 
 // Forward declarations for command handlers
 void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk);
-void handle_controller_command(const Args &args, const dev_utils::NvmeController &ctrl);
+void handle_controller_command(const Args &args, dev_utils::NvmeController &ctrl);
 
 int main(int argc, char *argv[])
 {
@@ -245,6 +245,7 @@ int main(int argc, char *argv[])
 
     if (args.disk_number.has_value())
     {
+        // For disk-specific commands, we can still use the const version
         if (auto *disk = controller_list.by_num(args.disk_number.value()))
         {
             handle_disk_command(args, *disk);
@@ -257,6 +258,7 @@ int main(int argc, char *argv[])
     }
     else if (args.bus_number.has_value())
     {
+        // For controller commands that might mutate, we need a non-const controller
         if (auto *ctrl = controller_list.by_bus(args.bus_number.value()))
         {
             handle_controller_command(args, *ctrl);
@@ -377,7 +379,7 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
     }
 }
 
-void handle_controller_command(const Args &args, const dev_utils::NvmeController &ctrl)
+void handle_controller_command(const Args &args, dev_utils::NvmeController &ctrl)
 {
     switch (args.command)
     {
@@ -408,7 +410,7 @@ void handle_controller_command(const Args &args, const dev_utils::NvmeController
     case Command::Create:
     {
         std::cout << "Rescanning controller to emulate create..." << std::endl;
-        if (const_cast<dev_utils::NvmeController &>(ctrl).rescan())
+        if (ctrl.rescan())
             std::cout << "Rescan successful." << std::endl;
         else
             std::cerr << "Rescan failed." << std::endl;
@@ -417,7 +419,7 @@ void handle_controller_command(const Args &args, const dev_utils::NvmeController
     case Command::Delete:
     {
         std::cout << "Removing controller..." << std::endl;
-        if (const_cast<dev_utils::NvmeController &>(ctrl).remove())
+        if (ctrl.remove())
             std::cout << "Remove successful." << std::endl;
         else
             std::cerr << "Remove failed." << std::endl;
@@ -426,7 +428,7 @@ void handle_controller_command(const Args &args, const dev_utils::NvmeController
     case Command::Attach:
     {
         std::cout << "Enabling controller..." << std::endl;
-        if (const_cast<dev_utils::NvmeController &>(ctrl).enable())
+        if (ctrl.enable())
             std::cout << "Enable successful." << std::endl;
         else
             std::cerr << "Enable failed." << std::endl;
@@ -435,7 +437,7 @@ void handle_controller_command(const Args &args, const dev_utils::NvmeController
     case Command::Detach:
     {
         std::cout << "Disabling controller..." << std::endl;
-        if (const_cast<dev_utils::NvmeController &>(ctrl).disable())
+        if (ctrl.disable())
             std::cout << "Disable successful." << std::endl;
         else
             std::cerr << "Disable failed." << std::endl;
@@ -445,7 +447,7 @@ void handle_controller_command(const Args &args, const dev_utils::NvmeController
         // Delegate to disk command handler, using the first disk on the controller
         if (!ctrl.disks().empty())
         {
-            handle_disk_command(args, const_cast<dev_utils::NvmeController &>(ctrl).disks()[0]);
+            handle_disk_command(args, ctrl.disks()[0]);
         }
         else
         {

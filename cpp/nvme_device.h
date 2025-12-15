@@ -131,7 +131,7 @@ namespace nvme
 
         bool issue_set_property(
             STORAGE_PROPERTY_ID property_id,
-            const STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data) const;
+            STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data) const;
 
         bool issue_protocol_command(
             const NVME_COMMAND &nvme_cmd,

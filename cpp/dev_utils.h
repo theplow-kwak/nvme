@@ -70,6 +70,7 @@ namespace dev_utils
         void inspect();
         void enum_child_disks();
         const PhysicalDisk *by_num(int driveno) const;
+        PhysicalDisk *by_num(int driveno);
 
         bool enable();
         bool disable();
@@ -136,9 +137,12 @@ namespace dev_utils
 
         void enumerate();
         const PhysicalDisk *by_num(int driveno) const;
+        PhysicalDisk *by_num(int driveno);
         const NvmeController *by_bus(int bus) const;
+        NvmeController *by_bus(int bus);
 
         const std::vector<NvmeController> &controllers() const;
+        std::vector<NvmeController> &controllers();
 
     private:
         std::vector<NvmeController> controllers_;

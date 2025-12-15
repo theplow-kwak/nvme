@@ -34,10 +34,17 @@ namespace nvme
         auto *descriptor = reinterpret_cast<STORAGE_PROTOCOL_DATA_DESCRIPTOR *>(buffer.data());
         descriptor->Version = sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR);
         descriptor->Size = sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR);
-        memcpy(&descriptor->ProtocolSpecificData, &protocol_data, sizeof(protocol_data));
+
+        // The query itself is in a separate structure
+        std::vector<uint8_t> query_buffer(offsetof(STORAGE_PROPERTY_QUERY, AdditionalParameters) + sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
+        auto *query = reinterpret_cast<STORAGE_PROPERTY_QUERY *>(query_buffer.data());
+        query->PropertyId = StorageDeviceProtocolSpecificProperty;
+        query->QueryType = PropertyStandardQuery;
+        memcpy(query->AdditionalParameters, &protocol_data, sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
+
 
         DWORD bytesReturned = 0;
-        if (DeviceIoControl(hDevice, IOCTL_STORAGE_QUERY_PROPERTY, buffer.data(), buffer.size(), buffer.data(), buffer.size(), &bytesReturned, nullptr) && bytesReturned >= sizeof(NVME_IDENTIFY_CONTROLLER_DATA))
+        if (DeviceIoControl(hDevice, IOCTL_STORAGE_QUERY_PROPERTY, query, query_buffer.size(), buffer.data(), buffer.size(), &bytesReturned, nullptr) && bytesReturned >= sizeof(NVME_IDENTIFY_CONTROLLER_DATA))
         {
             uint8_t *data = reinterpret_cast<uint8_t *>(descriptor) + descriptor->ProtocolSpecificData.ProtocolDataOffset;
             return *reinterpret_cast<NVME_IDENTIFY_CONTROLLER_DATA *>(data);
@@ -332,6 +339,31 @@ namespace nvme
     }
 
     // Low-level IOCTL wrappers
+    namespace
+    {
+        // Helper to construct the query buffer for IOCTL_STORAGE_QUERY_PROPERTY
+        std::vector<uint8_t> build_storage_query_buffer(STORAGE_PROPERTY_ID property_id, const STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data)
+        {
+            std::vector<uint8_t> buffer(offsetof(STORAGE_PROPERTY_QUERY, AdditionalParameters) + sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
+            auto *query = reinterpret_cast<STORAGE_PROPERTY_QUERY *>(buffer.data());
+            query->PropertyId = property_id;
+            query->QueryType = PropertyStandardQuery;
+            memcpy(query->AdditionalParameters, &protocol_data, sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
+            return buffer;
+        }
+
+        // Helper to construct the set buffer for IOCTL_STORAGE_SET_PROPERTY
+        std::vector<uint8_t> build_storage_set_buffer(STORAGE_PROPERTY_ID property_id, const STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data)
+        {
+            std::vector<uint8_t> buffer(offsetof(STORAGE_PROPERTY_SET, AdditionalParameters) + sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
+            auto *property_set = reinterpret_cast<STORAGE_PROPERTY_SET *>(buffer.data());
+            property_set->PropertyId = property_id;
+            property_set->SetType = PropertyStandardSet;
+            memcpy(property_set->AdditionalParameters, &protocol_data, sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
+            return buffer;
+        }
+    }
+
     bool NvmeDevice::issue_identify_query(uint8_t cns, uint32_t nsid, std::vector<uint8_t> &buffer) const
     {
         if (buffer.size() < NVME_IDENTIFY_BUFFER_SIZE)
@@ -366,7 +398,8 @@ namespace nvme
         std::vector<uint8_t> output_buffer(sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR));
         if (issue_query_property(StorageAdapterProtocolSpecificProperty, proto_data, output_buffer))
         {
-            value = proto_data.FixedProtocolReturnData;
+            // For Get Feature, the result is in the FixedProtocolReturnData field.
+            value = reinterpret_cast<STORAGE_PROTOCOL_DATA_DESCRIPTOR *>(output_buffer.data())->ProtocolSpecificData.FixedProtocolReturnData;
             return true;
         }
         return false;
@@ -390,34 +423,41 @@ namespace nvme
 
     bool NvmeDevice::issue_query_property(STORAGE_PROPERTY_ID property_id, STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data, std::vector<uint8_t> &output_buffer) const
     {
-        std::vector<uint8_t> query_buffer(offsetof(STORAGE_PROPERTY_QUERY, AdditionalParameters) + sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
-        auto *query = reinterpret_cast<STORAGE_PROPERTY_QUERY *>(query_buffer.data());
-        query->PropertyId = property_id;
-        query->QueryType = PropertyStandardQuery;
-        memcpy(query->AdditionalParameters, &protocol_data, sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
+        auto query_buffer = build_storage_query_buffer(property_id, protocol_data);
 
         DWORD returned_length = 0;
         if (!DeviceIoControl(device_handle_, IOCTL_STORAGE_QUERY_PROPERTY, query_buffer.data(), static_cast<DWORD>(query_buffer.size()), output_buffer.data(), static_cast<DWORD>(output_buffer.size()), &returned_length, nullptr))
         {
             return false;
         }
+
         auto *desc = reinterpret_cast<STORAGE_PROTOCOL_DATA_DESCRIPTOR *>(output_buffer.data());
         if (desc->Version != sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR) || desc->Size != sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR))
             return false;
+
+        // The protocol_data can be updated by the call, so we copy it back.
         memcpy(&protocol_data, &desc->ProtocolSpecificData, sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
         return true;
     }
 
-    bool NvmeDevice::issue_set_property(STORAGE_PROPERTY_ID property_id, const STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data) const
+    bool NvmeDevice::issue_set_property(STORAGE_PROPERTY_ID property_id, STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data) const
     {
-        std::vector<uint8_t> set_buffer(offsetof(STORAGE_PROPERTY_SET, AdditionalParameters) + sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
-        auto *property_set = reinterpret_cast<STORAGE_PROPERTY_SET *>(set_buffer.data());
-        property_set->PropertyId = property_id;
-        property_set->SetType = PropertyStandardSet;
-        memcpy(property_set->AdditionalParameters, &protocol_data, sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
-
+        auto set_buffer = build_storage_set_buffer(property_id, protocol_data);
+        
+        // The output buffer is the same as the input buffer for SET operations.
         DWORD returned_length = 0;
-        return DeviceIoControl(device_handle_, IOCTL_STORAGE_SET_PROPERTY, set_buffer.data(), static_cast<DWORD>(set_buffer.size()), nullptr, 0, &returned_length, nullptr);
+        if (!DeviceIoControl(device_handle_, IOCTL_STORAGE_SET_PROPERTY, set_buffer.data(), static_cast<DWORD>(set_buffer.size()), set_buffer.data(), static_cast<DWORD>(set_buffer.size()), &returned_length, nullptr))
+        {
+            return false;
+        }
+
+        // The results of the operation are returned in the ProtocolSpecificData field of the descriptor within the buffer.
+        auto *desc = reinterpret_cast<STORAGE_PROTOCOL_DATA_DESCRIPTOR *>(set_buffer.data());
+        if (desc->Version != sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR) || desc->Size != sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR))
+            return false;
+
+        memcpy(&protocol_data, &desc->ProtocolSpecificData, sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
+        return true;
     }
 
     // Raw passthrough command

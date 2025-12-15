@@ -10,29 +10,32 @@
 #include <vector>
 #include <system_error>
 #include <format>
+#include <charconv>
 
 #pragma comment(lib, "cfgmgr32.lib")
 #pragma comment(lib, "setupapi.lib")
 
 namespace
 {
-    // Helper to convert wstring to string
     std::string to_string(const std::wstring &wstr)
     {
         if (wstr.empty())
-            return std::string();
-        // WideCharToMultiByte returns the length without the null terminator.
-        // Pass -1 instead of wstr.length() to include the null terminator in the conversion.
-        int size_needed = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wstr.c_str(), -1, NULL, 0, NULL, NULL);
+        {
+            return {};
+        }
+        int size_needed = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wstr.c_str(), static_cast<int>(wstr.size()), nullptr, 0, nullptr, nullptr);
         if (size_needed == 0)
         {
             // The cause of the error can be checked with GetLastError().
-            return std::string();
+            return {};
         }
-        std::string strTo(size_needed, 0);
-        // The size of strTo includes the null terminator, so the converted string is automatically null-terminated.
-        WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, strTo.data(), size_needed, NULL, NULL);
-        return strTo;
+        std::string str_to(size_needed, 0);
+        if (WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), static_cast<int>(wstr.size()), str_to.data(), size_needed, nullptr, nullptr) == 0)
+        {
+            // Conversion failed.
+            return {};
+        }
+        return str_to;
     }
 }
 
@@ -46,26 +49,46 @@ namespace dev_utils
         PciBdf bdf = {};
         bdf.segment = 0; // Segment is not usually in this string, default to 0
 
-        try
-        {
-            size_t bus_pos = location_info.find("PCI bus ");
-            size_t dev_pos = location_info.find(", device ");
-            size_t fun_pos = location_info.find(", function ");
+        const char *start = location_info.c_str();
+        const char *end = start + location_info.size();
+        auto current = start;
 
-            if (bus_pos == std::string::npos || dev_pos == std::string::npos || fun_pos == std::string::npos)
+        auto find_tag = [&](const char *tag) -> bool
+        {
+            auto found = std::search(current, end, tag, tag + strlen(tag));
+            if (found == end)
             {
-                return std::nullopt;
+                return false;
             }
+            current = found + strlen(tag);
+            return true;
+        };
 
-            bdf.bus = std::stoi(location_info.substr(bus_pos + 8));
-            bdf.device = std::stoi(location_info.substr(dev_pos + 9));
-            bdf.function = std::stoi(location_info.substr(fun_pos + 11));
-            return bdf;
-        }
-        catch (const std::invalid_argument &)
+        auto parse_int = [&](int &value) -> bool
         {
+            auto [ptr, ec] = std::from_chars(current, end, value);
+            if (ec != std::errc())
+            {
+                return false;
+            }
+            current = ptr;
+            return true;
+        };
+
+        if (!find_tag("PCI bus "))
             return std::nullopt;
-        }
+        if (!parse_int(bdf.bus))
+            return std::nullopt;
+        if (!find_tag(", device "))
+            return std::nullopt;
+        if (!parse_int(bdf.device))
+            return std::nullopt;
+        if (!find_tag(", function "))
+            return std::nullopt;
+        if (!parse_int(bdf.function))
+            return std::nullopt;
+
+        return bdf;
     }
 
     std::string PciBdf::to_string() const
@@ -218,15 +241,10 @@ namespace dev_utils
 
     class LogicalDrive
     {
-    public:
-        static void enumerate()
+    private:
+        static void populate_cache_nolock()
         {
-            std::lock_guard<std::mutex> lock(g_logical_drive_cache_mutex);
-            if (!g_logical_drive_cache.empty())
-            {
-                return;
-            }
-
+            g_logical_drive_cache.clear();
             std::vector<char> buffer(1024);
             if (GetLogicalDriveStringsA(static_cast<DWORD>(buffer.size()), buffer.data()) > 0)
             {
@@ -243,10 +261,24 @@ namespace dev_utils
             }
         }
 
+    public:
+        static void enumerate()
+        {
+            std::lock_guard<std::mutex> lock(g_logical_drive_cache_mutex);
+            if (g_logical_drive_cache.empty())
+            {
+                populate_cache_nolock();
+            }
+        }
+
         static std::vector<std::string> get_drives(int number)
         {
-            enumerate();
             std::lock_guard<std::mutex> lock(g_logical_drive_cache_mutex);
+            if (g_logical_drive_cache.empty())
+            {
+                populate_cache_nolock();
+            }
+
             std::vector<std::string> drives;
             for (const auto &pair : g_logical_drive_cache)
             {
@@ -323,13 +355,12 @@ namespace dev_utils
             size_t last_amp = inst_id.rfind('&');
             if (last_amp != std::string::npos)
             {
-                try
+                const char *start = inst_id.c_str() + last_amp + 1;
+                const char *end = inst_id.c_str() + inst_id.size();
+                int parsed_nsid = 0;
+                if (auto [ptr, ec] = std::from_chars(start, end, parsed_nsid); ec == std::errc())
                 {
-                    nsid_ = std::stoi(inst_id.substr(last_amp + 1)) + 1;
-                }
-                catch (...)
-                {
-                    // nsid_ will remain -1 if parsing fails
+                    nsid_ = parsed_nsid + 1;
                 }
             }
         }
@@ -418,6 +449,18 @@ namespace dev_utils
     }
 
     const PhysicalDisk *NvmeController::by_num(int driveno) const
+    {
+        for (const auto &disk : disks_)
+        {
+            if (disk.disk_number() == driveno)
+            {
+                return &disk;
+            }
+        }
+        return nullptr;
+    }
+
+    PhysicalDisk *NvmeController::by_num(int driveno)
     {
         for (auto &disk : disks_)
         {
@@ -514,6 +557,18 @@ namespace dev_utils
 
     const PhysicalDisk *NvmeControllerList::by_num(int driveno) const
     {
+        for (const auto &controller : controllers_)
+        {
+            if (auto *disk = controller.by_num(driveno))
+            {
+                return disk;
+            }
+        }
+        return nullptr;
+    }
+
+    PhysicalDisk *NvmeControllerList::by_num(int driveno)
+    {
         for (auto &controller : controllers_)
         {
             if (auto *disk = controller.by_num(driveno))
@@ -526,6 +581,18 @@ namespace dev_utils
 
     const NvmeController *NvmeControllerList::by_bus(int bus) const
     {
+        for (const auto &controller : controllers_)
+        {
+            if (controller.bdf().bus == bus)
+            {
+                return &controller;
+            }
+        }
+        return nullptr;
+    }
+
+    NvmeController *NvmeControllerList::by_bus(int bus)
+    {
         for (auto &controller : controllers_)
         {
             if (controller.bdf().bus == bus)
@@ -537,6 +604,8 @@ namespace dev_utils
     }
 
     const std::vector<NvmeController> &NvmeControllerList::controllers() const { return controllers_; }
+
+    std::vector<NvmeController> &NvmeControllerList::controllers() { return controllers_; }
 
     std::ostream &operator<<(std::ostream &os, const NvmeControllerList &list)
     {

@@ -9,12 +9,24 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${fileDirname}\\build\\${fileBasenameNoExtension}.exe",
-            "args": ["list", "nvme", "--dest", "d:\\"],
+            "args": ["list"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
             "console": "externalTerminal",
             "preLaunchTask": "C/C++: cl.exe build active file"
+        },
+        {
+            "name": "C/C++: cmake debug luncher active file",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${fileDirname}\\build\\debug\\nvme-tool.exe",
+            "args": ["list"],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "console": "externalTerminal",
+            "preLaunchTask": "CMake: build"
         },
     ],
 }

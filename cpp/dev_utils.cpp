@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <cfgmgr32.h>
 #include <setupapi.h>
+#include <initguid.h>
 #include <devpkey.h>
 #include <cstdio>
 #include <algorithm>

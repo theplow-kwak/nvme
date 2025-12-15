@@ -1,8 +1,5 @@
 #pragma once
 
-// Prevent <windows.h> from defining min() and max() macros,
-// which conflict with std::min and std::max.
-#define NOMINMAX
 #include "nvme_device.h"
 #include "disk.h"
 
@@ -78,8 +75,8 @@ namespace dev_utils
         bool disable();
         bool remove();
         bool restart();
-        bool rescan();
         bool refresh();
+        bool rescan();
 
         const PciBdf &bdf() const;
         const DevInstance &devinst() const;

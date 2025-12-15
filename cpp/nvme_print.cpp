@@ -1,4 +1,5 @@
 #include "nvme_print.h"
+
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -28,7 +29,13 @@ namespace
     template <typename T>
     void print_hex(const char *name, T value)
     {
-        std::cout << "  " << std::left << std::setw(10) << name << ": 0x" << std::hex << static_cast<uint64_t>(value) << std::dec << std::endl;
+        uint64_t val = 0;
+        if constexpr (sizeof(T) <= sizeof(uint64_t))
+        {
+            memcpy(&val, &value, sizeof(T));
+        }
+
+        std::cout << "  " << std::left << std::setw(10) << name << ": 0x" << std::hex << val << std::dec << std::endl;
     }
 
     // Helper to print a decimal value
@@ -112,10 +119,10 @@ namespace nvme
             if (lba_format_idx < 16)
             {
                 const auto &lba_format = data.LBAF[lba_format_idx];
-                uint32_t lba_size = 1 << lba_format.DUMMYSTRUCTNAME.LBADS;
+                uint32_t lba_size = 1 << lba_format.LBADS;
                 std::cout << "  LBAF " << lba_format_idx << "  : "
                           << "LBA Size=" << lba_size << " bytes, "
-                          << "Metadata Size=" << static_cast<int>(lba_format.DUMMYSTRUCTNAME.MS) << " bytes" << std::endl;
+                          << "Metadata Size=" << static_cast<int>(lba_format.MS) << " bytes" << std::endl;
             }
             std::cout << std::endl;
         }
@@ -150,10 +157,10 @@ namespace nvme
                 NVME_CDW11_FEATURE_ARBITRATION info;
                 info.AsUlong = value;
                 std::cout << "  Arbitration:" << std::endl;
-                std::cout << "    Arbitration Burst (AB) : " << static_cast<int>(info.DUMMYSTRUCTNAME.AB) << std::endl;
-                std::cout << "    Low Priority Weight (LPW) : " << static_cast<int>(info.DUMMYSTRUCTNAME.LPW) << std::endl;
-                std::cout << "    Medium Priority Weight (MPW): " << static_cast<int>(info.DUMMYSTRUCTNAME.MPW) << std::endl;
-                std::cout << "    High Priority Weight (HPW): " << static_cast<int>(info.DUMMYSTRUCTNAME.HPW) << std::endl;
+                std::cout << "    Arbitration Burst (AB) : " << static_cast<int>(info.AB) << std::endl;
+                std::cout << "    Low Priority Weight (LPW) : " << static_cast<int>(info.LPW) << std::endl;
+                std::cout << "    Medium Priority Weight (MPW): " << static_cast<int>(info.MPW) << std::endl;
+                std::cout << "    High Priority Weight (HPW): " << static_cast<int>(info.HPW) << std::endl;
                 break;
             }
             case NVME_FEATURE_POWER_MANAGEMENT:
@@ -161,7 +168,7 @@ namespace nvme
                 NVME_CDW11_FEATURE_POWER_MANAGEMENT info;
                 info.AsUlong = value;
                 std::cout << "  Power Management:" << std::endl;
-                std::cout << "    Power State (PS): " << static_cast<int>(info.DUMMYSTRUCTNAME.PS) << std::endl;
+                std::cout << "    Power State (PS): " << static_cast<int>(info.PS) << std::endl;
                 break;
             }
             case NVME_FEATURE_TEMPERATURE_THRESHOLD:
@@ -169,7 +176,7 @@ namespace nvme
                 NVME_CDW11_FEATURE_TEMPERATURE_THRESHOLD info;
                 info.AsUlong = value;
                 std::cout << "  Temperature Threshold:" << std::endl;
-                std::cout << "    Temp Threshold (TMPTH) : " << static_cast<int>(info.DUMMYSTRUCTNAME.TMPTH) << std::endl;
+                std::cout << "    Temp Threshold (TMPTH) : " << static_cast<int>(info.TMPTH) << std::endl;
                 break;
             }
             case NVME_FEATURE_ERROR_RECOVERY:
@@ -177,7 +184,7 @@ namespace nvme
                 NVME_CDW11_FEATURE_ERROR_RECOVERY info;
                 info.AsUlong = value;
                 std::cout << "  Error Recovery:" << std::endl;
-                std::cout << "    Time Limited Error Recovery (TLER): " << static_cast<int>(info.DUMMYSTRUCTNAME.TLER) << std::endl;
+                std::cout << "    Time Limited Error Recovery (TLER): " << static_cast<int>(info.TLER) << std::endl;
                 break;
             }
             case NVME_FEATURE_VOLATILE_WRITE_CACHE:
@@ -185,7 +192,7 @@ namespace nvme
                 NVME_CDW11_FEATURE_VOLATILE_WRITE_CACHE info;
                 info.AsUlong = value;
                 std::cout << "  Volatile Write Cache:" << std::endl;
-                std::cout << "    Write Cache Enabled (WCE): " << static_cast<int>(info.DUMMYSTRUCTNAME.WCE) << std::endl;
+                std::cout << "    Write Cache Enabled (WCE): " << static_cast<int>(info.WCE) << std::endl;
                 break;
             }
             case NVME_FEATURE_NUMBER_OF_QUEUES:
@@ -193,8 +200,8 @@ namespace nvme
                 NVME_CDW11_FEATURE_NUMBER_OF_QUEUES info;
                 info.AsUlong = value;
                 std::cout << "  Number of Queues:" << std::endl;
-                std::cout << "    Num Submission Queues (NSQ): " << static_cast<int>(info.DUMMYSTRUCTNAME.NSQ) << std::endl;
-                std::cout << "    Num Completion Queues (NCQ): " << static_cast<int>(info.DUMMYSTRUCTNAME.NCQ) << std::endl;
+                std::cout << "    Num Submission Queues (NSQ): " << static_cast<int>(info.NSQ) << std::endl;
+                std::cout << "    Num Completion Queues (NCQ): " << static_cast<int>(info.NCQ) << std::endl;
                 break;
             }
             case NVME_FEATURE_ASYNC_EVENT_CONFIG:
@@ -202,9 +209,9 @@ namespace nvme
                 NVME_CDW11_FEATURE_ASYNC_EVENT_CONFIG info;
                 info.AsUlong = value;
                 std::cout << "  Asynchronous Event Configuration:" << std::endl;
-                std::cout << "    Critical Warnings      : " << static_cast<int>(info.DUMMYSTRUCTNAME.CriticalWarnings) << std::endl;
-                std::cout << "    Namespace Attributes   : " << static_cast<int>(info.DUMMYSTRUCTNAME.NsAttributeNotices) << std::endl;
-                std::cout << "    Firmware Activation    : " << static_cast<int>(info.DUMMYSTRUCTNAME.FwActivationNotices) << std::endl;
+                std::cout << "    Critical Warnings      : " << static_cast<int>(info.CriticalWarnings) << std::endl;
+                std::cout << "    Namespace Attributes   : " << static_cast<int>(info.NsAttributeNotices) << std::endl;
+                std::cout << "    Firmware Activation    : " << static_cast<int>(info.FwActivationNotices) << std::endl;
                 break;
             }
             default:

@@ -1,6 +1,7 @@
 #include "dev_utils.h"
 #include <windows.h>
 #include <cfgmgr32.h>
+#include <setupapi.h>
 #include <devpkey.h>
 #include <cstdio>
 #include <algorithm>
@@ -9,7 +10,8 @@
 #include <system_error>
 #include <format>
 
-#pragma comment(lib, "Cfgmgr32.lib")
+#pragma comment(lib, "cfgmgr32.lib")
+#pragma comment(lib, "setupapi.lib")
 
 namespace
 {
@@ -18,9 +20,17 @@ namespace
     {
         if (wstr.empty())
             return std::string();
-        int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+        // WideCharToMultiByte returns the length without the null terminator.
+        // Pass -1 instead of wstr.length() to include the null terminator in the conversion.
+        int size_needed = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wstr.c_str(), -1, NULL, 0, NULL, NULL);
+        if (size_needed == 0)
+        {
+            // The cause of the error can be checked with GetLastError().
+            return std::string();
+        }
         std::string strTo(size_needed, 0);
-        WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+        // The size of strTo includes the null terminator, so the converted string is automatically null-terminated.
+        WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, strTo.data(), size_needed, NULL, NULL);
         return strTo;
     }
 }
@@ -86,19 +96,31 @@ namespace dev_utils
     {
         DEVPROPTYPE prop_type;
         ULONG prop_size = 0;
-        if (CM_Get_DevNode_PropertyW(devinst_, &prop_key, &prop_type, nullptr, &prop_size, 0) != CR_BUFFER_SMALL)
-        {
-            return std::nullopt;
-        }
-        if (prop_type != DEVPROP_TYPE_STRING)
+        // 1. First, get the size and type of the property.
+        CONFIGRET result = CM_Get_DevNode_PropertyW(devinst_, &prop_key, &prop_type, nullptr, &prop_size, 0);
+
+        // If the property exists but has a size of 0 (empty string), CR_SUCCESS is returned.
+        // If the property exists and has a size greater than 0, CR_BUFFER_SMALL is returned.
+        // Both cases are valid scenarios.
+        if (result != CR_SUCCESS && result != CR_BUFFER_SMALL)
         {
             return std::nullopt;
         }
 
-        std::vector<wchar_t> buffer(prop_size / sizeof(wchar_t));
+        // Prevent cases where the type is not a string, or the size is 0 but the result code is not CR_SUCCESS.
+        if (prop_type != DEVPROP_TYPE_STRING || (prop_size == 0 && result != CR_SUCCESS))
+        {
+            return std::nullopt;
+        }
+
+        // 2. Retrieve the actual data.
+        std::wstring buffer(prop_size / sizeof(wchar_t), L'\0');
         if (CM_Get_DevNode_PropertyW(devinst_, &prop_key, &prop_type, (PBYTE)buffer.data(), &prop_size, 0) == CR_SUCCESS)
         {
-            return std::wstring(buffer.data());
+            // The string returned by the Windows API might be terminated by multiple nulls.
+            // Treat only the part up to the first null character as the valid string.
+            buffer.resize(wcslen(buffer.c_str()));
+            return buffer;
         }
         return std::nullopt;
     }
@@ -147,7 +169,7 @@ namespace dev_utils
 
     bool DevInstance::remove()
     {
-        return CM_Query_And_Remove_SubTreeA(devinst_, nullptr, nullptr, 0, CM_REMOVE_NO_RESTART) == CR_SUCCESS;
+        return CM_Query_And_Remove_SubTreeW(devinst_, nullptr, nullptr, 0, CM_REMOVE_NO_RESTART) == CR_SUCCESS;
     }
 
     bool DevInstance::restart()
@@ -158,7 +180,7 @@ namespace dev_utils
     bool DevInstance::refresh()
     {
         DEVINST root_devinst = 0;
-        if (CM_Locate_DevNodeA(&root_devinst, nullptr, CM_LOCATE_DEVNODE_NORMAL) == CR_SUCCESS)
+        if (CM_Locate_DevNodeW(&root_devinst, nullptr, CM_LOCATE_DEVNODE_NORMAL) == CR_SUCCESS)
         {
             return CM_Reenumerate_DevNode(root_devinst, 0) == CR_SUCCESS;
         }
@@ -475,7 +497,7 @@ namespace dev_utils
                 continue;
 
             DEVINST devinst = 0;
-            if (CM_Locate_DevNodeW(&devinst, dev_id_buf.data(), CM_LOCATE_DEVNODE_NORMAL) != CR_SUCCESS)
+            if (CM_Locate_DevNodeW(&devinst, dev_id_buf.data(), CM_LOCATE_DEVNODE_PHANTOM) != CR_SUCCESS)
                 continue;
 
             if (auto controller = NvmeController::create(devinst, interface_str))

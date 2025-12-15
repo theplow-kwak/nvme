@@ -1,7 +1,5 @@
 #pragma once
 
-// Prevent <windows.h> from defining min() and max() macros,
-// which conflict with std::min and std::max.
 #define NOMINMAX
 #include "scsi.h"
 #include <windows.h>

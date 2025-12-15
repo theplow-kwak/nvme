@@ -1,8 +1,5 @@
 #pragma once
 
-// Prevent <windows.h> from defining min() and max() macros,
-// which conflict with std::min and std::max.
-#define NOMINMAX
 #include <windows.h>
 #include <ntddscsi.h>
 #include <cstdint>
@@ -11,10 +8,6 @@
 #include <ostream>
 #include <cstddef>
 #include <span>
-
-// From cpp/nvme_define.h - assuming it's available. If not, I'll define it.
-// I see `nvme_define.h` in the file tree. I will assume it contains basic type definitions.
-// The Rust code doesn't depend on nvme_define.rs, so I might not need it for scsi.
 
 namespace scsi
 {

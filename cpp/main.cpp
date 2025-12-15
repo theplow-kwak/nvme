@@ -8,7 +8,6 @@
 #include <optional>
 #include <stdexcept>
 
-// Extended command set from Rust version
 enum class Command
 {
     None,

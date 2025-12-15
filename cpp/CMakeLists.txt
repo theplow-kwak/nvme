@@ -15,7 +15,7 @@ if(NOT WIN32)
 endif()
 
 # 실행 파일 이름 설정
-set(EXECUTABLE_NAME "nvme-cpp")
+set(EXECUTABLE_NAME "nvme-tool")
 
 # 소스 파일 목록 정의
 set(SOURCES
@@ -24,7 +24,7 @@ set(SOURCES
     disk.cpp
     lib.cpp
     nvme_device.cpp
-    # nvme_print.cpp
+    nvme_print.cpp
     scsi.cpp
 )
 

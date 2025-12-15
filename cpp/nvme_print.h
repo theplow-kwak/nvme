@@ -2,6 +2,8 @@
 
 #include <vector>
 #include <cstdint>
+#include <windows.h>
+#include <winioctl.h>
 #include <nvme.h>
 
 namespace nvme

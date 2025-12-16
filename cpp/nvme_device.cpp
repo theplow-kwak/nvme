@@ -42,7 +42,6 @@ namespace nvme
         query->QueryType = PropertyStandardQuery;
         memcpy(query->AdditionalParameters, &protocol_data, sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
 
-
         DWORD bytesReturned = 0;
         if (DeviceIoControl(hDevice, IOCTL_STORAGE_QUERY_PROPERTY, query, query_buffer.size(), buffer.data(), buffer.size(), &bytesReturned, nullptr) && bytesReturned >= sizeof(NVME_IDENTIFY_CONTROLLER_DATA))
         {
@@ -244,7 +243,7 @@ namespace nvme
         protocol_data.DataType = NVMeDataTypeLogPage;
         protocol_data.ProtocolDataRequestValue = lid;
         protocol_data.ProtocolDataRequestSubValue = nsid;
-        protocol_data.ProtocolDataOffset = 0;
+        protocol_data.ProtocolDataOffset = static_cast<DWORD>(sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
         protocol_data.ProtocolDataLength = static_cast<DWORD>(buffer.size());
 
         std::vector<uint8_t> output_buffer(sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR) + buffer.size());
@@ -373,7 +372,7 @@ namespace nvme
         proto_data.DataType = NVMeDataTypeIdentify;
         proto_data.ProtocolDataRequestValue = cns;
         proto_data.ProtocolDataRequestSubValue = nsid;
-        proto_data.ProtocolDataOffset = 0;
+        proto_data.ProtocolDataOffset = static_cast<DWORD>(sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
         proto_data.ProtocolDataLength = static_cast<DWORD>(buffer.size());
 
         std::vector<uint8_t> output_buffer(sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR) + buffer.size());
@@ -443,7 +442,7 @@ namespace nvme
     bool NvmeDevice::issue_set_property(STORAGE_PROPERTY_ID property_id, STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data) const
     {
         auto set_buffer = build_storage_set_buffer(property_id, protocol_data);
-        
+
         // The output buffer is the same as the input buffer for SET operations.
         DWORD returned_length = 0;
         if (!DeviceIoControl(device_handle_, IOCTL_STORAGE_SET_PROPERTY, set_buffer.data(), static_cast<DWORD>(set_buffer.size()), set_buffer.data(), static_cast<DWORD>(set_buffer.size()), &returned_length, nullptr))
@@ -470,21 +469,22 @@ namespace nvme
     {
         if (!is_open())
             return false;
-        std::vector<uint8_t> buffer(sizeof(STORAGE_PROTOCOL_COMMAND) + data_buffer_size);
+        std::vector<uint8_t> buffer(FIELD_OFFSET(STORAGE_PROTOCOL_COMMAND, Command) + sizeof(NVME_COMMAND) + data_buffer_size);
         auto *cmd = reinterpret_cast<STORAGE_PROTOCOL_COMMAND *>(buffer.data());
 
         cmd->Version = STORAGE_PROTOCOL_STRUCTURE_VERSION;
         cmd->Length = sizeof(STORAGE_PROTOCOL_COMMAND);
         cmd->ProtocolType = ProtocolTypeNvme;
-        cmd->Flags = is_read_command ? STORAGE_PROTOCOL_COMMAND_FLAG_ADAPTER_REQUEST : 0;
+        cmd->Flags = STORAGE_PROTOCOL_COMMAND_FLAG_ADAPTER_REQUEST;
         cmd->CommandLength = STORAGE_PROTOCOL_COMMAND_LENGTH_NVME;
-        cmd->ErrorInfoLength = sizeof(NVME_ERROR_INFO_LOG);
+        cmd->ErrorInfoLength = 0;
         cmd->TimeOutValue = 10;
         cmd->CommandSpecific = STORAGE_PROTOCOL_SPECIFIC_NVME_ADMIN_COMMAND;
-        cmd->DataFromDeviceBufferOffset = is_read_command ? sizeof(STORAGE_PROTOCOL_COMMAND) : 0;
-        cmd->DataToDeviceBufferOffset = is_read_command ? 0 : sizeof(STORAGE_PROTOCOL_COMMAND);
-        cmd->DataFromDeviceTransferLength = is_read_command ? data_buffer_size : 0;
+        cmd->ErrorInfoOffset = FIELD_OFFSET(STORAGE_PROTOCOL_COMMAND, Command) + sizeof(NVME_COMMAND);
         cmd->DataToDeviceTransferLength = is_read_command ? 0 : data_buffer_size;
+        cmd->DataFromDeviceTransferLength = is_read_command ? data_buffer_size : 0;
+        cmd->DataToDeviceBufferOffset = cmd->ErrorInfoOffset + cmd->ErrorInfoLength;
+        cmd->DataFromDeviceBufferOffset = cmd->DataToDeviceBufferOffset + cmd->DataToDeviceTransferLength;
 
         memcpy(cmd->Command, &nvme_cmd, sizeof(NVME_COMMAND));
         if (!is_read_command && data_buffer_size > 0)

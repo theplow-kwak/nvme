@@ -360,7 +360,7 @@ namespace disk
         }
         catch (const std::system_error &e)
         {
-            std::cerr << "ioctl_wrapper failed for get_physical_drv_number_from_logical_drv: " << e.what() << std::endl;
+            // std::cerr << "ioctl_wrapper failed for get_physical_drv_number_from_logical_drv: " << e.what() << std::endl;
         }
 
         CloseHandle(h_device);

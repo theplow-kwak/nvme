@@ -20,7 +20,7 @@
             "name": "C/C++: cmake debug luncher active file",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${fileDirname}\\build\\debug\\nvme-tool.exe",
+            "program": "${fileDirname}\\build\\nvme.exe",
             "args": ["list"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

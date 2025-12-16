@@ -15,7 +15,7 @@ if(NOT WIN32)
 endif()
 
 # 실행 파일 이름 설정
-set(EXECUTABLE_NAME "nvme-tool")
+set(EXECUTABLE_NAME "nvme")
 
 # 소스 파일 목록 정의
 set(SOURCES

@@ -1,28 +1,24 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 
 if "%1"=="clean" goto clean
 
-set PARAM=%1
-if "%PARAM%"=="" set PARAM=op_copy.cpp
-
-for %%F in (%PARAM%) do (
-    set fname=%%~nF
-    set ext=%%~xF
-)
-if "%ext%"=="" set ext=.cpp
-
 if not exist build mkdir build
 
-set CMD_OPTS=/EHsc /std:c++20 /W4 /Zi /O2 /MT 
-set FILES=%fname%%ext%
+rem Compiler options from CMakeLists.txt and original make.cmd
+set CMD_OPTS=/EHsc /std:c++20 /W2 /WX /permissive- /Zi /O2 /MT
 
-if /I "%fname%"=="offset2lba" (
-    set FILES=offset2lba.cpp offset2lba_windows.cpp
-)
+rem Source files for the executable
+set SOURCES=main.cpp dev_utils.cpp disk.cpp lib.cpp nvme_device.cpp nvme_print.cpp scsi.cpp
 
-echo cl.exe %CMD_OPTS% /Fo:build\ /Fd:build\%fname%.pdb /Fe:build\%fname%.exe %FILES%
-cl.exe %CMD_OPTS% /Fo:build\ /Fd:build\%fname%.pdb /Fe:build\%fname%.exe %FILES%
+rem Required libraries
+set LIBS=Cfgmgr32.lib SetupAPI.lib
+
+rem Output executable name
+set EXECUTABLE_NAME=nvme.exe
+
+echo cl.exe %CMD_OPTS% /Fo:build\ /Fd:build\%EXECUTABLE_NAME%.pdb /Fe:build\%EXECUTABLE_NAME% %SOURCES% /link %LIBS%
+cl.exe %CMD_OPTS% /Fo:build\ /Fd:build\%EXECUTABLE_NAME%.pdb /Fe:build\%EXECUTABLE_NAME% %SOURCES% /link %LIBS%
 
 goto :EOF
 

@@ -381,23 +381,22 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
 
 void handle_controller_command(const Args &args, dev_utils::NvmeController &ctrl)
 {
-    // The first disk's driver is representative for controller-wide commands
-    if (ctrl.disks().empty())
-    {
-        std::cerr << "Cannot get driver from controller." << std::endl;
-        break;
-    }
-    const auto *driver = ctrl.disks()[0].get_driver();
-    if (!driver)
-    {
-        std::cerr << "Cannot get driver from controller." << std::endl;
-        break;
-    }
-
     switch (args.command)
     {
     case Command::ListNs:
     {
+        // The first disk's driver is representative for controller-wide commands
+        if (ctrl.disks().empty())
+        {
+            std::cerr << "Cannot get driver from controller." << std::endl;
+            break;
+        }
+        const auto *driver = ctrl.disks()[0].get_driver();
+        if (!driver)
+        {
+            std::cerr << "Cannot get driver from controller." << std::endl;
+            break;
+        }
         if (auto ns_list = driver->identify_ns_list(0, args.all_ns))
         {
             nvme::print::print_nvme_ns_list(*ns_list);

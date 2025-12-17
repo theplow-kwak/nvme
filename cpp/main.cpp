@@ -1,12 +1,13 @@
+#include "argparser.hpp"
 #include "dev_utils.h"
 #include "nvme_device.h"
 #include "nvme_print.h"
-#include <iostream>
 #include <iomanip>
-#include <string>
-#include <vector>
+#include <iostream>
 #include <optional>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 enum class Command
 {
@@ -24,210 +25,106 @@ enum class Command
     Detach
 };
 
-struct Args
-{
-    Command command = Command::None;
-    std::optional<int> disk_number;
-    std::optional<int> bus_number;
-    uint32_t nsid = 1;
-    uint32_t fid = 0;
-    uint32_t sel = 0;
-    uint32_t feature_value = 0;
-    std::string log_id;
-    bool all_ns = false;
-    int create_size = 0;
-};
-
-void print_usage()
-{
-    std::cout << "Usage: nvme-cpp.exe [--disk <num> | --bus <num>] [command]" << std::endl;
-    std::cout << "Commands:" << std::endl;
-    std::cout << "  list                      List NVMe devices and controllers" << std::endl;
-    std::cout << "  id-ctrl                   Identify Controller" << std::endl;
-    std::cout << "  id-ns [--nsid <id>]       Identify Namespace" << std::endl;
-    std::cout << "  list-ns [--all]           List Namespaces" << std::endl;
-    std::cout << "  get-feature --fid <id> [--sel <val>]" << std::endl;
-    std::cout << "  set-feature --fid <id> --value <val>" << std::endl;
-    std::cout << "  get-log --lid <id_str>    Get Log Page (e.g., 0x02)" << std::endl;
-    std::cout << "  create --size <val>       Rescan controller (emulates create)" << std::endl;
-    std::cout << "  delete                    Remove/delete controller" << std::endl;
-    std::cout << "  attach                    Enable controller" << std::endl;
-    std::cout << "  detach                    Disable controller" << std::endl;
-}
-
-bool parse_args(int argc, char *argv[], Args &args)
-{
-    for (int i = 1; i < argc; ++i)
-    {
-        std::string arg = argv[i];
-
-        // Parameters
-        if (arg == "--disk")
-        {
-            if (++i < argc)
-                try
-                {
-                    args.disk_number = std::stoi(argv[i]);
-                }
-                catch (const std::invalid_argument &)
-                {
-                    return false;
-                }
-        }
-        else if (arg == "--bus")
-        {
-            if (++i < argc)
-                try
-                {
-                    args.bus_number = std::stoi(argv[i]);
-                }
-                catch (const std::invalid_argument &)
-                {
-                    return false;
-                }
-        }
-        else if (arg == "--nsid")
-        {
-            if (++i < argc)
-                try
-                {
-                    args.nsid = std::stoul(argv[i]);
-                }
-                catch (const std::invalid_argument &)
-                {
-                    return false;
-                }
-        }
-        else if (arg == "--fid")
-        {
-            if (++i < argc)
-                try
-                {
-                    args.fid = std::stoul(argv[i], nullptr, 0);
-                }
-                catch (const std::invalid_argument &)
-                {
-                    return false;
-                }
-        }
-        else if (arg == "--sel")
-        {
-            if (++i < argc)
-                try
-                {
-                    args.sel = std::stoul(argv[i], nullptr, 0);
-                }
-                catch (const std::invalid_argument &)
-                {
-                    return false;
-                }
-        }
-        else if (arg == "--value")
-        {
-            if (++i < argc)
-                try
-                {
-                    args.feature_value = std::stoul(argv[i], nullptr, 0);
-                }
-                catch (const std::invalid_argument &)
-                {
-                    return false;
-                }
-        }
-        else if (arg == "--lid")
-        {
-            if (++i < argc)
-                args.log_id = argv[i];
-        }
-        else if (arg == "--all")
-        {
-            args.all_ns = true;
-        }
-        else if (arg == "--size")
-        {
-            if (++i < argc)
-                try
-                {
-                    args.create_size = std::stoi(argv[i]);
-                }
-                catch (const std::invalid_argument &)
-                {
-                    return false;
-                }
-        }
-        // Commands
-        else if (arg == "list")
-            args.command = Command::List;
-        else if (arg == "id-ctrl")
-            args.command = Command::IdCtrl;
-        else if (arg == "id-ns")
-            args.command = Command::IdNs;
-        else if (arg == "list-ns")
-            args.command = Command::ListNs;
-        else if (arg == "get-feature")
-            args.command = Command::GetFeature;
-        else if (arg == "set-feature")
-            args.command = Command::SetFeature;
-        else if (arg == "get-log")
-            args.command = Command::GetLog;
-        else if (arg == "create")
-            args.command = Command::Create;
-        else if (arg == "delete")
-            args.command = Command::Delete;
-        else if (arg == "attach")
-            args.command = Command::Attach;
-        else if (arg == "detach")
-            args.command = Command::Detach;
-        else
-        {
-            // Unknown argument
-            return false;
-        }
-    }
-
-    // Validate required arguments for specific commands
-    switch (args.command)
-    {
-    case Command::GetFeature:
-        return args.fid != 0;
-    case Command::SetFeature:
-        return args.fid != 0 && args.feature_value != 0;
-    case Command::GetLog:
-        return !args.log_id.empty();
-    case Command::Create:
-        return args.create_size > 0;
-    case Command::None:
-        return false;
-    default:
-        return true;
-    }
-}
-
 // Forward declarations for command handlers
-void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk);
-void handle_controller_command(const Args &args, dev_utils::NvmeController &ctrl);
+void handle_disk_command(Command command, argparse::ArgParser &parser, const dev_utils::PhysicalDisk &disk);
+void handle_controller_command(Command command, argparse::ArgParser &parser, dev_utils::NvmeController &ctrl);
 
 int main(int argc, char *argv[])
 {
-    Args args;
-    if (argc < 2 || !parse_args(argc, argv, args))
+    argparse::ArgParser parser("A command-line tool for interacting with NVMe devices.");
+
+    parser.add_positional("command", "The command to execute (e.g., list, id-ctrl, id-ns).", true);
+    parser.add_option("--disk", "-d", "Target a specific disk number.", false, "-1");
+    parser.add_option("--bus", "-b", "Target a specific controller bus number.", false, "-1");
+    parser.add_option("--nsid", "", "Namespace ID for commands like id-ns.", false, "1");
+    parser.add_option("--fid", "", "Feature ID for get/set-feature (hex or dec).", false, "0");
+    parser.add_option("--sel", "", "Select value for get-feature (hex or dec).", false, "0");
+    parser.add_option("--value", "", "Value for set-feature (hex or dec).", false, "0");
+    parser.add_option("--lid", "", "Log ID for get-log (hex or dec).", false, "");
+    parser.add_option("--size", "", "Size for create.", false, "0");
+    parser.add_flag("--all", "-a", "Apply to all namespaces (e.g., with list-ns).");
+
+    if (!parser.parse(argc, argv))
     {
-        print_usage();
+        return 1;
+    }
+
+    Command command = Command::None;
+    auto cmd_str_opt = parser.get_positional("command");
+    if (!cmd_str_opt.has_value())
+    {
+        std::cerr << "Error: No command specified." << std::endl;
+        parser.print_help(argv[0]);
+        return 1;
+    }
+    const auto &cmd_str = cmd_str_opt.value();
+
+    if (cmd_str == "list")
+        command = Command::List;
+    else if (cmd_str == "id-ctrl")
+        command = Command::IdCtrl;
+    else if (cmd_str == "id-ns")
+        command = Command::IdNs;
+    else if (cmd_str == "list-ns")
+        command = Command::ListNs;
+    else if (cmd_str == "get-feature")
+        command = Command::GetFeature;
+    else if (cmd_str == "set-feature")
+        command = Command::SetFeature;
+    else if (cmd_str == "get-log")
+        command = Command::GetLog;
+    else if (cmd_str == "create")
+        command = Command::Create;
+    else if (cmd_str == "delete")
+        command = Command::Delete;
+    else if (cmd_str == "attach")
+        command = Command::Attach;
+    else if (cmd_str == "detach")
+        command = Command::Detach;
+    else
+    {
+        std::cerr << "Unknown command: " << cmd_str << std::endl;
+        parser.print_help(argv[0]);
+        return 1;
+    }
+
+    // Command-specific argument validation
+    if (command == Command::GetFeature && !parser.is_set("fid"))
+    {
+        std::cerr << "Error: --fid is required for get-feature." << std::endl;
+        return 1;
+    }
+    if (command == Command::SetFeature && (!parser.is_set("fid") || !parser.is_set("value")))
+    {
+        std::cerr << "Error: --fid and --value are required for set-feature." << std::endl;
+        return 1;
+    }
+    if (command == Command::GetLog && !parser.is_set("lid"))
+    {
+        std::cerr << "Error: --lid is required for get-log." << std::endl;
+        return 1;
+    }
+    if (command == Command::Create && !parser.is_set("size"))
+    {
+        std::cerr << "Error: --size is required for create." << std::endl;
         return 1;
     }
 
     dev_utils::NvmeControllerList controller_list;
     controller_list.enumerate();
 
-    if (args.command == Command::List)
+    auto disk_number = parser.get<int>("disk").value_or(-1);
+    auto bus_number = parser.get<int>("bus").value_or(-1);
+
+    if (command == Command::List)
     {
-        if (!args.bus_number.has_value())
+        if (bus_number == -1)
         {
             std::cout << controller_list;
         }
         else
         {
-            if (auto *ctrl = controller_list.by_bus(args.bus_number.value()))
+            if (auto *ctrl = controller_list.by_bus(bus_number))
             {
                 std::cout << *ctrl;
             }
@@ -235,37 +132,34 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    // Commands that require a specific device
-    if (!args.disk_number.has_value() && !args.bus_number.has_value())
+    if (disk_number == -1 && bus_number == -1)
     {
         std::cerr << "Error: --disk <num> or --bus <num> is required for this command." << std::endl;
-        print_usage();
+        parser.print_help(argv[0]);
         return 1;
     }
 
-    if (args.disk_number.has_value())
+    if (disk_number != -1)
     {
-        // For disk-specific commands, we can still use the const version
-        if (auto *disk = controller_list.by_num(args.disk_number.value()))
+        if (auto *disk = controller_list.by_num(disk_number))
         {
-            handle_disk_command(args, *disk);
+            handle_disk_command(command, parser, *disk);
         }
         else
         {
-            std::cerr << "Error: Disk " << args.disk_number.value() << " not found." << std::endl;
+            std::cerr << "Error: Disk " << disk_number << " not found." << std::endl;
             return 1;
         }
     }
-    else if (args.bus_number.has_value())
+    else if (bus_number != -1)
     {
-        // For controller commands that might mutate, we need a non-const controller
-        if (auto *ctrl = controller_list.by_bus(args.bus_number.value()))
+        if (auto *ctrl = controller_list.by_bus(bus_number))
         {
-            handle_controller_command(args, *ctrl);
+            handle_controller_command(command, parser, *ctrl);
         }
         else
         {
-            std::cerr << "Error: Controller on bus " << args.bus_number.value() << " not found." << std::endl;
+            std::cerr << "Error: Controller on bus " << bus_number << " not found." << std::endl;
             return 1;
         }
     }
@@ -273,7 +167,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
+void handle_disk_command(Command command, argparse::ArgParser &parser, const dev_utils::PhysicalDisk &disk)
 {
     auto *device = disk.get_driver();
     if (!device)
@@ -282,7 +176,7 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
         return;
     }
 
-    switch (args.command)
+    switch (command)
     {
     case Command::IdCtrl:
     {
@@ -298,45 +192,47 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
     }
     case Command::IdNs:
     {
-        if (auto data = device->identify_namespace_struct(args.nsid))
+        auto nsid = parser.get<uint32_t>("nsid").value_or(1);
+        if (auto data = device->identify_namespace_struct(nsid))
         {
             nvme::print::print_nvme_identify_namespace_data(*data);
         }
         else
         {
-            std::cerr << "Identify Namespace failed for NSID " << args.nsid << std::endl;
+            std::cerr << "Identify Namespace failed for NSID " << nsid << std::endl;
         }
         break;
     }
     case Command::GetLog:
     {
         uint32_t lid = 0;
+        auto log_id_str = parser.get<std::string>("lid").value();
         try
         {
-            if (args.log_id.starts_with("0x") || args.log_id.starts_with("0X"))
+            if (log_id_str.starts_with("0x") || log_id_str.starts_with("0X"))
             {
-                lid = std::stoul(args.log_id.substr(2), nullptr, 16);
+                lid = std::stoul(log_id_str.substr(2), nullptr, 16);
             }
             else
             {
-                lid = std::stoul(args.log_id);
+                lid = std::stoul(log_id_str);
             }
         }
-        catch (const std::invalid_argument &e)
+        catch (const std::invalid_argument &)
         {
-            std::cerr << "Invalid log ID format: " << args.log_id << std::endl;
+            std::cerr << "Invalid log ID format: " << log_id_str << std::endl;
             break;
         }
+        auto nsid = parser.get<uint32_t>("nsid").value_or(1);
         std::vector<uint8_t> buffer(4096);
-        if (device->get_log_page(args.nsid, lid, buffer))
+        if (device->get_log_page(nsid, lid, buffer))
         {
             std::cout << "Get Log Page (LID: 0x" << std::hex << lid << std::dec << ") success." << std::endl;
-            // Simple hex dump for now
             for (size_t i = 0; i < 256 && i < buffer.size(); ++i)
             {
                 if (i % 16 == 0)
                     std::cout << "\n"
-                              << std::setfill('0') << std::setw(4) << i << ": ";
+                              << std::setfill('0') << std::setw(4) << std::hex << i << ": ";
                 std::cout << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(buffer[i]) << " ";
             }
             std::cout << std::dec << std::endl;
@@ -350,9 +246,11 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
     case Command::GetFeature:
     {
         uint32_t result = 0;
-        if (device->get_feature(args.fid, args.sel, 0, result))
+        auto fid = parser.get<uint32_t>("fid").value();
+        auto sel = parser.get<uint32_t>("sel").value_or(0);
+        if (device->get_feature(fid, sel, 0, result))
         {
-            nvme::print::print_nvme_get_feature(args.fid, result);
+            nvme::print::print_nvme_get_feature(fid, result);
         }
         else
         {
@@ -363,9 +261,11 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
     case Command::SetFeature:
     {
         uint32_t result = 0;
-        if (device->set_feature(args.fid, args.feature_value, result))
+        auto fid = parser.get<uint32_t>("fid").value();
+        auto value = parser.get<uint32_t>("value").value();
+        if (device->set_feature(fid, value, result))
         {
-            nvme::print::print_nvme_set_feature(args.fid, result);
+            nvme::print::print_nvme_set_feature(fid, result);
         }
         else
         {
@@ -379,13 +279,12 @@ void handle_disk_command(const Args &args, const dev_utils::PhysicalDisk &disk)
     }
 }
 
-void handle_controller_command(const Args &args, dev_utils::NvmeController &ctrl)
+void handle_controller_command(Command command, argparse::ArgParser &parser, dev_utils::NvmeController &ctrl)
 {
-    switch (args.command)
+    switch (command)
     {
     case Command::ListNs:
     {
-        // The first disk's driver is representative for controller-wide commands
         if (ctrl.disks().empty())
         {
             std::cerr << "Cannot get driver from controller." << std::endl;
@@ -397,7 +296,8 @@ void handle_controller_command(const Args &args, dev_utils::NvmeController &ctrl
             std::cerr << "Cannot get driver from controller." << std::endl;
             break;
         }
-        if (auto ns_list = driver->identify_ns_list(0, args.all_ns))
+        bool all_ns = parser.is_set("all");
+        if (auto ns_list = driver->identify_ns_list(0, all_ns))
         {
             nvme::print::print_nvme_ns_list(*ns_list);
         }
@@ -444,10 +344,9 @@ void handle_controller_command(const Args &args, dev_utils::NvmeController &ctrl
         break;
     }
     default:
-        // Delegate to disk command handler, using the first disk on the controller
         if (!ctrl.disks().empty())
         {
-            handle_disk_command(args, ctrl.disks()[0]);
+            handle_disk_command(command, parser, ctrl.disks()[0]);
         }
         else
         {

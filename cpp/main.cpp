@@ -205,24 +205,7 @@ void handle_disk_command(Command command, argparse::ArgParser &parser, const dev
     }
     case Command::GetLog:
     {
-        uint32_t lid = 0;
-        auto log_id_str = parser.get<std::string>("lid").value();
-        try
-        {
-            if (log_id_str.starts_with("0x") || log_id_str.starts_with("0X"))
-            {
-                lid = std::stoul(log_id_str.substr(2), nullptr, 16);
-            }
-            else
-            {
-                lid = std::stoul(log_id_str);
-            }
-        }
-        catch (const std::invalid_argument &)
-        {
-            std::cerr << "Invalid log ID format: " << log_id_str << std::endl;
-            break;
-        }
+        auto lid = parser.get<uint32_t>("lid").value();
         auto nsid = parser.get<uint32_t>("nsid").value_or(1);
         std::vector<uint8_t> buffer(4096);
         if (device->get_log_page(nsid, lid, buffer))

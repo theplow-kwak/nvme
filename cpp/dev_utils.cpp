@@ -149,6 +149,20 @@ namespace dev_utils
         return std::nullopt;
     }
 
+    std::optional<ULONG> DevInstance::get_property_ulong(const DEVPROPKEY &prop_key) const
+    {
+        DEVPROPTYPE prop_type;
+        ULONG prop_size = sizeof(ULONG);
+        ULONG value = 0;
+        CONFIGRET result = CM_Get_DevNode_PropertyW(devinst_, &prop_key, &prop_type, (PBYTE)&value, &prop_size, 0);
+
+        if (result == CR_SUCCESS && prop_type == DEVPROP_TYPE_UINT32)
+        {
+            return value;
+        }
+        return std::nullopt;
+    }
+
     std::optional<std::string> DevInstance::service() const
     {
         if (auto prop = get_property_string(DEVPKEY_Device_Service))
@@ -169,6 +183,22 @@ namespace dev_utils
 
     std::optional<PciBdf> DevInstance::pcibdf() const
     {
+        auto bus = get_property_ulong(DEVPKEY_Device_BusNumber);
+        auto address = get_property_ulong(DEVPKEY_Device_Address);
+
+        if (bus.has_value() && address.has_value())
+        {
+            PciBdf bdf;
+            // DEVPKEY_Device_Segment is available on Win10 1803+ but might not exist on older systems.
+            // We'll default to 0 for broader compatibility.
+            bdf.segment = 0;
+            bdf.bus = *bus;
+            bdf.device = (*address >> 16) & 0xFFFF;
+            bdf.function = *address & 0xFFFF;
+            return bdf;
+        }
+
+        // Fallback to parsing the location string if direct properties fail.
         if (auto loc_info = location_info())
         {
             return PciBdf::parse(*loc_info);

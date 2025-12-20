@@ -35,6 +35,7 @@ namespace dev_utils
         static std::optional<DevInstance> create(DEVINST devinst);
 
         std::optional<std::wstring> get_property_string(const DEVPROPKEY &prop_key) const;
+        std::optional<ULONG> get_property_ulong(const DEVPROPKEY &prop_key) const;
         std::optional<std::vector<uint8_t>> get_property_binary(const DEVPROPKEY &prop_key) const;
 
         std::optional<std::string> service() const;

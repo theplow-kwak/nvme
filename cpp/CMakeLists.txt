@@ -9,9 +9,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Windows 프로젝트일 경우에만 빌드 진행
+# 이 리포지토리의 CMake 설정은 Windows에서만 사용됩니다.
 if(NOT WIN32)
-    message(FATAL_ERROR "This project can only be built on Windows.")
+    message(FATAL_ERROR "This project is intended to be configured and built on Windows only.")
 endif()
 
 # 실행 파일 이름 설정
@@ -43,4 +43,13 @@ target_link_libraries(${EXECUTABLE_NAME} PRIVATE
 if(MSVC)
     target_compile_options(${EXECUTABLE_NAME} PRIVATE /W2 /WX)
     target_compile_options(${EXECUTABLE_NAME} PRIVATE /permissive-)
+else()
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        target_compile_options(${EXECUTABLE_NAME} PRIVATE -Wall -Wextra)
+    endif()
 endif()
+
+# Print configuration summary
+message(STATUS "Configuration summary:")
+message(STATUS "  Host: ${CMAKE_HOST_SYSTEM_NAME} ${CMAKE_HOST_SYSTEM_PROCESSOR}")
+message(STATUS "  Target: Windows ${CMAKE_SYSTEM_PROCESSOR}")

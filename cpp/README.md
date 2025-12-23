@@ -71,18 +71,12 @@ cmake --build build-arm64 --config Release
 
 프로젝트의 CMake 설정에는 MSVC 정적 런타임 및 일반 정적 실행 파일 시도를 위한 옵션이 추가되어 있습니다.
 
-- MSVC에서 CRT를 정적으로 링크하려면 `USE_STATIC_MSVC_RUNTIME=ON`을 지정하세요 (CMake가 `/MT` 계열 런타임을 사용하도록 설정).
+
+- 정적 런타임 또는 정적 실행파일을 원하면 `USE_STATIC_RUNTIME=ON`을 지정하세요. (MSVC에서는 `/MT` 계열 런타임을 사용하도록 설정하고, GCC/Clang에서는 `-static` 링커 플래그를 추가합니다.)
 
 ```powershell
-cmake -S . -B build -G Ninja -DUSE_STATIC_MSVC_RUNTIME=ON
+cmake -S . -B build -G Ninja -DUSE_STATIC_RUNTIME=ON
 cmake --build build --config Release
-```
-
-- 비-MSVC(GCC/Clang) 환경에서 정적 실행파일을 시도하려면 `BUILD_STATIC_EXECUTABLE=ON`을 사용하면 CMake가 `-static` 링커 플래그를 추가합니다:
-
-```bash
-cmake -S . -B build -G Ninja -DBUILD_STATIC_EXECUTABLE=ON
-cmake --build build -j
 ```
 
 참고:

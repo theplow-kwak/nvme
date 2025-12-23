@@ -9,6 +9,31 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# 옵션: 정적 런타임(/MT) 사용 여부 및 정적 실행 파일 시도
+option(USE_STATIC_MSVC_RUNTIME "Use static MSVC runtime (/MT)" OFF)
+option(BUILD_STATIC_EXECUTABLE "Attempt to build a static executable (adds -static for non-MSVC)" OFF)
+
+# MSVC에서 정적 런타임을 사용하도록 설정 (CMake >= 3.15에서 권장 방식)
+if(MSVC AND USE_STATIC_MSVC_RUNTIME)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    message(STATUS "Using static MSVC runtime (MultiThreaded/MultithreadedDebug)")
+endif()
+
+# BUILD_STATIC_EXECUTABLE이 설정되면 비-MSVC에서는 -static을 링커에 추가합니다.
+if(BUILD_STATIC_EXECUTABLE)
+    if(MSVC)
+        if(NOT USE_STATIC_MSVC_RUNTIME)
+            set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+        endif()
+        message(STATUS "Requested static executable on MSVC: static runtime enabled")
+    else()
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+            message(STATUS "Added -static to linker flags for static executable")
+        endif()
+    endif()
+endif()
+
 # 이 리포지토리의 CMake 설정은 Windows에서만 사용됩니다.
 if(NOT WIN32)
     message(FATAL_ERROR "This project is intended to be configured and built on Windows only.")

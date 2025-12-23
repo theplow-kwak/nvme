@@ -1,95 +1,86 @@
 # C++ (cpp) 빌드 — CMake 사용 (Windows)
 
-`cpp` 디렉터리의 CMake 설정은 Windows 환경(Visual Studio / MSVC)을 기본으로 합니다.
+이 문서는 `cpp` 디렉터리의 C++ 소스 코드를 CMake와 Ninja를 사용하여 Windows 환경에서 빌드하는 방법을 안내합니다.
 
-간단한 MSVC(Visual Studio) 명령행 예시:
+## 사전 요구 사항
 
-```powershell
-mkdir build
-cd build
-# x64 (Visual Studio 2019/2022 등)
-cmake -S .. -B . -G "Visual Studio 18 2026" -A x64
-cmake --build . --config Debug
+1.  **Visual Studio 2026**: C++ 데스크톱 개발 워크로드가 설치되어 있어야 합니다.
+    -   ARM64 빌드를 위해서는 "C++ ARM64 build tools" 개별 구성 요소를 추가로 설치해야 합니다.
+2.  **Ninja**: 빠른 빌드를 위한 빌드 시스템입니다.
+    -   Visual Studio Installer에서 "C++ CMake tools for Windows" 구성 요소를 통해 설치할 수 있습니다.
+    -   또는 Chocolatey (`choco install ninja`)나 Scoop (`scoop install ninja`)으로 직접 설치할 수 있습니다.
 
-# ARM64 예시
-cmake -S .. -B . -G "Visual Studio 18 2026" -A ARM64
-cmake --build . --config Debug
+## 빌드 방법
+
+빌드는 **Visual Studio 개발자 명령 프롬프트** 내에서 수행하는 것을 권장합니다. 이 환경은 컴파일러와 링커 경로를 자동으로 설정해주어 빌드 과정을 단순화합니다.
+
+### 1. 개발자 명령 프롬프트 열기
+
+시작 메뉴에서 빌드하려는 아키텍처에 맞는 프롬프트를 검색하여 실행합니다.
+
+-   **x64 (amd64) 빌드용**: `x64 Native Tools Command Prompt for VS 2026`
+-   **ARM64 빌드용**: `x64_arm64 Cross Tools Command Prompt for VS 2026`
+
+### 2. 소스 코드로 이동
+
+명령 프롬프트에서 이 프로젝트의 `cpp` 디렉터리로 이동합니다.
+
+```sh
+cd /path/to/your/project/cpp
 ```
 
-Visual Studio에서 `Open Folder`로 루트 폴더를 연 뒤 CMake 설정을 통해 빌드할 수도 있습니다.
+### 3. CMake 실행 및 빌드
 
-## Ninja를 사용한 빌드
+아래 명령어를 사용하여 빌드 디렉터리를 생성하고, 프로젝트를 설정한 뒤, 빌드를 실행합니다.
 
-Ninja 빌드 시스템을 사용하면 더 빠른 빌드가 가능합니다:
+#### **x64 (amd64) 릴리스 빌드**
 
-```powershell
-mkdir build
-cd build
-# Ninja 제너레이터 사용 (MSVC)
-cmake -S .. -B . -G Ninja -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
+```sh
+# 빌드 디렉터리 생성 및 이동
+mkdir build && cd build
+
+# CMake 설정 (Ninja 사용)
+cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+
+# 빌드 실행
 cmake --build .
+```
 
-# 또는 다음과 같이 릴리스 빌드
-cmake -S .. -B . -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
+#### **ARM64 릴리스 빌드**
+
+```sh
+# 빌드 디렉터리 생성 및 이동
+mkdir build-arm64 && cd build-arm64
+
+# CMake 설정 (Ninja 사용)
+cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+
+# 빌드 실행
 cmake --build .
+```
 
-# ARM64 빌드 (Ninja)
-mkdir build-arm64
-cd build-arm64
-cmake -S .. -B . -G Ninja -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DCMAKE_C_COMPILER=clarm64 -DCMAKE_CXX_COMPILER=clarm64
+빌드가 완료되면 빌드 디렉터리(`build` 또는 `build-arm64`) 안에 `nvme.exe` 실행 파일이 생성됩니다.
+
+## 정적(Static) 빌드
+
+C/C++ 런타임 라이브러리를 정적으로 링크하려면 CMake 설정 시 `USE_STATIC_RUNTIME` 옵션을 `ON`으로 지정합니다. 이는 MSVC에서 `/MT` 컴파일 옵션을 활성화합니다.
+
+```sh
+# x64 정적 릴리스 빌드 예시
+cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DUSE_STATIC_RUNTIME=ON
 cmake --build .
 ```
 
-### ARM64 빌드 문제 해결
+**참고**: 이 옵션은 C/C++ 런타임만 정적으로 링크하며, `SetupAPI.lib`와 같은 시스템 라이브러리는 여전히 동적으로 링크됩니다.
 
-- 에러 예시: `CMAKE_CXX_COMPILER: clarm64 is not a full path and was not found in the path` — 이는 `clarm64`라는 실행 파일을 PATH에서 찾을 수 없어서 발생합니다. 기본적으로 MSVC의 컴파일러 실행 파일 이름은 `cl.exe`이며, ARM64용 `cl.exe`는 Visual Studio 설치 디렉터리의 `bin/Hostx64/arm64` 같은 하위 폴더에 있습니다.
+## (대안) Visual Studio 생성기 사용
 
-해결 방법:
+Ninja 대신 Visual Studio 솔루션(`.sln`) 파일을 생성하여 빌드할 수도 있습니다.
 
-1. Visual Studio의 개발자 명령 프롬프트(또는 `vcvarsall.bat`)로 ARM64 툴체인 환경을 활성화한 뒤 CMake를 실행하세요. 그러면 `cl.exe`가 PATH에 추가되어 CMake가 자동으로 컴파일러를 찾습니다.
+```sh
+# x64용 솔루션 생성
+cmake .. -G "Visual Studio 18 2026" -A x64
 
-```powershell
-call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64_arm64
-mkdir build-arm64
-cd build-arm64
-cmake -S .. -B . -G Ninja
-cmake --build . --config Release
+# ARM64용 솔루션 생성
+cmake .. -G "Visual Studio 18 2026" -A ARM64
 ```
-
-2. 또는 ARM64용 `cl.exe`의 전체 경로를 직접 지정하세요 (Visual Studio 설치 경로는 환경에 따라 다름):
-
-```powershell
-cmake -S .. -B build-arm64 -G Ninja \
-	-DCMAKE_C_COMPILER="C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/<version>/bin/Hostx64/arm64/cl.exe" \
-	-DCMAKE_CXX_COMPILER="C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/<version>/bin/Hostx64/arm64/cl.exe"
-cmake --build build-arm64 --config Release
-```
-
-참고: `clarm64` 같은 이름은 기본적으로 존재하지 않습니다. 대신 `cl.exe`(ARM64용)를 PATH에 놓거나 전체 경로를 지정해야 합니다.
-
-### 정적 빌드(정적 런타임 / 정적 실행파일)
-
-프로젝트의 CMake 설정에는 MSVC 정적 런타임 및 일반 정적 실행 파일 시도를 위한 옵션이 추가되어 있습니다.
-
-
-- 정적 런타임 또는 정적 실행파일을 원하면 `USE_STATIC_RUNTIME=ON`을 지정하세요. (MSVC에서는 `/MT` 계열 런타임을 사용하도록 설정하고, GCC/Clang에서는 `-static` 링커 플래그를 추가합니다.)
-
-```powershell
-cmake -S . -B build -G Ninja -DUSE_STATIC_RUNTIME=ON
-cmake --build build --config Release
-```
-
-참고:
-- Windows에서 완전한(모든 DLL을 제거한) 정적 실행은 일반적으로 어렵습니다. 보통은 CRT만 정적으로 링크(`/MT`)하는 방식으로 충분합니다.
-- 정적 빌드 옵션은 플랫폼과 라이브러리에 따라 링크 에러를 일으킬 수 있으니 필요 시 의존성(예: SetupAPI 같은 Windows 전용 DLL)에 대한 처리를 확인하세요.
-
-참고:
-- Ninja가 설치되어 있어야 합니다. (`choco install ninja` 또는 Visual Studio와 함께 설치)
-- `CMAKE_C_COMPILER` / `CMAKE_CXX_COMPILER`는 사용 중인 컴파일러에 맞게 조정하세요
-- ARM64 빌드 시 `clarm64` (ARM64용 MSVC 컴파일러) 또는 적절한 ARM64 컴파일러를 지정해야 합니다
-
-참고:
-- 이 프로젝트는 Windows에서 구성/빌드하도록 설계되어 있습니다. 리눅스에서 mingw 등으로 크로스 빌드하려면 추가 설정이 필요합니다.
-- Windows 전용 라이브러리(`Cfgmgr32`, `SetupAPI`)는 타겟이 Windows일 때만 링크됩니다.
-
-문제가 발생하면 빌드 로그와 사용한 `cmake` 명령을 알려주세요.

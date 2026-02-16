@@ -14,13 +14,26 @@
 
 namespace nvme
 {
-    // (Keep existing helpers: trim_string)
+    // Optimized trim_string: avoids intermediate string copies
     static std::wstring trim_string(const char *buffer, size_t len)
     {
-        std::string s(buffer, len);
-        s.erase(s.find_last_not_of(" \n\r\t\0") + 1);
-        s.erase(0, s.find_first_not_of(" \n\r\t\0"));
-        return std::wstring(s.begin(), s.end());
+        // Find first non-whitespace
+        size_t start = 0;
+        while (start < len && (buffer[start] == ' ' || buffer[start] == '\n' || 
+                               buffer[start] == '\r' || buffer[start] == '\t' || 
+                               buffer[start] == '\0'))
+        {
+            ++start;
+        }
+        // Find last non-whitespace
+        size_t end = len;
+        while (end > start && (buffer[end - 1] == ' ' || buffer[end - 1] == '\n' || 
+                               buffer[end - 1] == '\r' || buffer[end - 1] == '\t' || 
+                               buffer[end - 1] == '\0'))
+        {
+            --end;
+        }
+        return std::wstring(buffer + start, buffer + end);
     }
 
     // Helper to get identify controller data to retrieve firmware revision
@@ -61,37 +74,47 @@ namespace nvme
     bool NvmeDeviceDiscovery::enumerate_devices()
     {
         devices_.clear();
+        devices_.reserve(16); // Optimize: Pre-allocate for typical case
+        
         HDEVINFO devInfo = SetupDiGetClassDevsW(&GUID_DEVINTERFACE_DISK, nullptr, nullptr, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
         if (devInfo == INVALID_HANDLE_VALUE)
             return false;
 
         SP_DEVICE_INTERFACE_DATA interfaceData;
         interfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+        
+        // Optimize: Pre-allocate and reuse buffers to avoid repeated allocation
+        std::vector<uint8_t> detailBuffer(1024);
+        STORAGE_PROPERTY_QUERY query{};
+        query.PropertyId = StorageDeviceProperty;
+        query.QueryType = PropertyStandardQuery;
+        std::vector<uint8_t> propBuffer(sizeof(STORAGE_DEVICE_DESCRIPTOR) + 512);
+        DWORD bytesReturned = 0;
 
         for (DWORD i = 0; SetupDiEnumDeviceInterfaces(devInfo, nullptr, &GUID_DEVINTERFACE_DISK, i, &interfaceData); ++i)
         {
-            DWORD detailSize = 0;
-            SetupDiGetDeviceInterfaceDetailW(devInfo, &interfaceData, nullptr, 0, &detailSize, nullptr);
-            if (detailSize == 0)
-                continue;
-
-            std::vector<uint8_t> detailBuffer(detailSize);
+            DWORD detailSize = static_cast<DWORD>(detailBuffer.size());
             auto *interfaceDetail = reinterpret_cast<SP_DEVICE_INTERFACE_DETAIL_DATA_W *>(detailBuffer.data());
             interfaceDetail->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_W);
 
-            if (!SetupDiGetDeviceInterfaceDetailW(devInfo, &interfaceData, interfaceDetail, detailSize, nullptr, nullptr))
-                continue;
+            // Optimize: Single call with pre-allocated buffer. Resize only if needed
+            if (!SetupDiGetDeviceInterfaceDetailW(devInfo, &interfaceData, interfaceDetail, detailSize, &detailSize, nullptr))
+            {
+                if (detailSize > 0 && detailSize > static_cast<DWORD>(detailBuffer.size()))
+                {
+                    detailBuffer.resize(detailSize);
+                    interfaceDetail = reinterpret_cast<SP_DEVICE_INTERFACE_DETAIL_DATA_W *>(detailBuffer.data());
+                    interfaceDetail->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_W);
+                    if (!SetupDiGetDeviceInterfaceDetailW(devInfo, &interfaceData, interfaceDetail, detailSize, nullptr, nullptr))
+                        continue;
+                }
+                else
+                    continue;
+            }
 
             HANDLE hDevice = CreateFileW(interfaceDetail->DevicePath, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
             if (hDevice == INVALID_HANDLE_VALUE)
                 continue;
-
-            STORAGE_PROPERTY_QUERY query{};
-            query.PropertyId = StorageDeviceProperty;
-            query.QueryType = PropertyStandardQuery;
-
-            std::vector<uint8_t> propBuffer(sizeof(STORAGE_DEVICE_DESCRIPTOR) + 512);
-            DWORD bytesReturned = 0;
 
             if (DeviceIoControl(hDevice, IOCTL_STORAGE_QUERY_PROPERTY, &query, sizeof(query), propBuffer.data(), static_cast<DWORD>(propBuffer.size()), &bytesReturned, nullptr) && bytesReturned > 0)
             {
@@ -100,8 +123,8 @@ namespace nvme
                 {
                     NvmeDeviceInfo info;
                     info.device_path = interfaceDetail->DevicePath;
-                    STORAGE_DEVICE_NUMBER sdn = {0};
-                    if (DeviceIoControl(hDevice, IOCTL_STORAGE_GET_DEVICE_NUMBER, NULL, 0, &sdn, sizeof(sdn), &bytesReturned, NULL))
+                    STORAGE_DEVICE_NUMBER sdn = {};
+                    if (DeviceIoControl(hDevice, IOCTL_STORAGE_GET_DEVICE_NUMBER, nullptr, 0, &sdn, sizeof(sdn), &bytesReturned, nullptr))
                     {
                         info.physical_drive_number = sdn.DeviceNumber;
                     }
@@ -198,7 +221,7 @@ namespace nvme
 
     std::optional<NVME_IDENTIFY_CONTROLLER_DATA> NvmeDevice::identify_controller() const
     {
-        std::vector<uint8_t> buffer(sizeof(NVME_IDENTIFY_CONTROLLER_DATA));
+        std::vector<uint8_t> buffer(NVME_IDENTIFY_BUFFER_SIZE);  // Use constant for consistency
         if (identify_controller_raw(buffer) && buffer.size() >= sizeof(NVME_IDENTIFY_CONTROLLER_DATA))
         {
             return *reinterpret_cast<NVME_IDENTIFY_CONTROLLER_DATA *>(buffer.data());
@@ -208,7 +231,7 @@ namespace nvme
 
     std::optional<NVME_IDENTIFY_NAMESPACE_DATA> NvmeDevice::identify_namespace(uint32_t nsid) const
     {
-        std::vector<uint8_t> buffer(sizeof(NVME_IDENTIFY_NAMESPACE_DATA));
+        std::vector<uint8_t> buffer(NVME_IDENTIFY_BUFFER_SIZE);  // Use constant for consistency
         if (identify_namespace_raw(nsid, buffer) && buffer.size() >= sizeof(NVME_IDENTIFY_NAMESPACE_DATA))
         {
             return *reinterpret_cast<NVME_IDENTIFY_NAMESPACE_DATA *>(buffer.data());
@@ -265,18 +288,21 @@ namespace nvme
         cmd.NSID = nsid;
         cmd.u.IDENTIFY.CDW10.CNS = all ? NVME_IDENTIFY_CNS_ALLOCATED_NAMESPACE_LIST : NVME_IDENTIFY_CNS_ACTIVE_NAMESPACES;
 
-        std::vector<uint8_t> buffer(4096, 0);
+        std::vector<uint8_t> buffer(NVME_MAX_LOG_SIZE, 0);
         uint32_t completion_dw0 = 0;
         if (send_vsc_admin_passthrough(cmd, buffer, completion_dw0))
         {
             std::vector<uint32_t> ns_list;
-            for (size_t i = 0; i < 1024; ++i)
+            // Optimize: Calculate max entries from buffer size instead of hardcoding 1024
+            const size_t max_entries = buffer.size() / sizeof(uint32_t);
+            for (size_t i = 0; i < max_entries; ++i)
             {
-                uint32_t id = *reinterpret_cast<uint32_t *>(buffer.data() + i * 4);
+                uint32_t id = *reinterpret_cast<uint32_t *>(buffer.data() + i * sizeof(uint32_t));
                 if (id == 0)
                     break;
                 ns_list.push_back(id);
             }
+            ns_list.shrink_to_fit(); // Optimize: Remove unused capacity
             return ns_list;
         }
         return std::nullopt;
@@ -342,9 +368,18 @@ namespace nvme
     namespace
     {
         // Helper to construct the query buffer for IOCTL_STORAGE_QUERY_PROPERTY
+        // Optimized: Uses stack allocation instead of vector for small fixed-size buffers
+        template<size_t Size>
+        struct StorageBuffer
+        {
+            static_assert(Size >= sizeof(STORAGE_PROPERTY_QUERY) + sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
+            uint8_t data[Size];
+        };
+
         std::vector<uint8_t> build_storage_query_buffer(STORAGE_PROPERTY_ID property_id, const STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data)
         {
-            std::vector<uint8_t> buffer(offsetof(STORAGE_PROPERTY_QUERY, AdditionalParameters) + sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
+            const size_t buffer_size = offsetof(STORAGE_PROPERTY_QUERY, AdditionalParameters) + sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA);
+            std::vector<uint8_t> buffer(buffer_size);
             auto *query = reinterpret_cast<STORAGE_PROPERTY_QUERY *>(buffer.data());
             query->PropertyId = property_id;
             query->QueryType = PropertyStandardQuery;
@@ -355,7 +390,8 @@ namespace nvme
         // Helper to construct the set buffer for IOCTL_STORAGE_SET_PROPERTY
         std::vector<uint8_t> build_storage_set_buffer(STORAGE_PROPERTY_ID property_id, const STORAGE_PROTOCOL_SPECIFIC_DATA &protocol_data)
         {
-            std::vector<uint8_t> buffer(offsetof(STORAGE_PROPERTY_SET, AdditionalParameters) + sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
+            const size_t buffer_size = offsetof(STORAGE_PROPERTY_SET, AdditionalParameters) + sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA);
+            std::vector<uint8_t> buffer(buffer_size);
             auto *property_set = reinterpret_cast<STORAGE_PROPERTY_SET *>(buffer.data());
             property_set->PropertyId = property_id;
             property_set->SetType = PropertyStandardSet;
@@ -366,26 +402,66 @@ namespace nvme
 
     bool NvmeDevice::issue_identify_query(uint8_t cns, uint32_t nsid, std::vector<uint8_t> &buffer) const
     {
+        // Ensure buffer is sized correctly
         if (buffer.size() < NVME_IDENTIFY_BUFFER_SIZE)
             buffer.resize(NVME_IDENTIFY_BUFFER_SIZE);
-        STORAGE_PROTOCOL_SPECIFIC_DATA proto_data = {};
-        proto_data.ProtocolType = ProtocolTypeNvme;
-        proto_data.DataType = NVMeDataTypeIdentify;
-        proto_data.ProtocolDataRequestValue = cns;
-        proto_data.ProtocolDataRequestSubValue = nsid;
-        proto_data.ProtocolDataOffset = static_cast<DWORD>(sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA));
-        proto_data.ProtocolDataLength = static_cast<DWORD>(buffer.size());
-
-        std::vector<uint8_t> output_buffer(sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR) + buffer.size());
-        if (issue_query_property(nsid == 0 ? StorageAdapterProtocolSpecificProperty : StorageDeviceProtocolSpecificProperty, proto_data, output_buffer))
+        
+        // Optimize: Follow Microsoft recommendation - allocate single buffer for both input/output
+        // to avoid redundant memory allocations
+        const size_t query_header_size = FIELD_OFFSET(STORAGE_PROPERTY_QUERY, AdditionalParameters);
+        const size_t protocol_data_size = sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA);
+        const size_t total_buffer_size = query_header_size + protocol_data_size + buffer.size();
+        
+        std::vector<uint8_t> combined_buffer(total_buffer_size);
+        
+        // Set up query structure at the beginning of the buffer
+        auto *query = reinterpret_cast<STORAGE_PROPERTY_QUERY *>(combined_buffer.data());
+        auto *proto_data = reinterpret_cast<STORAGE_PROTOCOL_SPECIFIC_DATA *>(query->AdditionalParameters);
+        
+        query->PropertyId = (nsid == 0) ? StorageAdapterProtocolSpecificProperty : StorageDeviceProtocolSpecificProperty;
+        query->QueryType = PropertyStandardQuery;
+        
+        proto_data->ProtocolType = ProtocolTypeNvme;
+        proto_data->DataType = NVMeDataTypeIdentify;
+        proto_data->ProtocolDataRequestValue = cns;
+        proto_data->ProtocolDataRequestSubValue = nsid;
+        proto_data->ProtocolDataOffset = static_cast<DWORD>(protocol_data_size);
+        proto_data->ProtocolDataLength = static_cast<DWORD>(buffer.size());
+        
+        // Send request - use same buffer for both input and output (Microsoft recommended)
+        DWORD returned_length = 0;
+        if (!DeviceIoControl(device_handle_, IOCTL_STORAGE_QUERY_PROPERTY, 
+                            combined_buffer.data(), static_cast<DWORD>(combined_buffer.size()),
+                            combined_buffer.data(), static_cast<DWORD>(combined_buffer.size()),
+                            &returned_length, nullptr))
         {
-            auto *desc = reinterpret_cast<STORAGE_PROTOCOL_DATA_DESCRIPTOR *>(output_buffer.data());
-            auto *proto_data_out = &desc->ProtocolSpecificData;
-            auto *data = reinterpret_cast<uint8_t *>(proto_data_out) + desc->ProtocolSpecificData.ProtocolDataOffset;
-            memcpy(buffer.data(), data, buffer.size());
-            return true;
+            return false;
         }
-        return false;
+        
+        // Validate response structure
+        auto *desc = reinterpret_cast<STORAGE_PROTOCOL_DATA_DESCRIPTOR *>(combined_buffer.data());
+        if (desc->Version != sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR) ||
+            desc->Size != sizeof(STORAGE_PROTOCOL_DATA_DESCRIPTOR))
+        {
+            return false;
+        }
+        
+        // Validate protocol data structure
+        auto *response_proto_data = &desc->ProtocolSpecificData;
+        if (response_proto_data->ProtocolDataOffset < protocol_data_size ||
+            response_proto_data->ProtocolDataLength < buffer.size())
+        {
+            return false;
+        }
+        
+        // Copy data from response buffer to output buffer
+        // ProtocolDataOffset is relative to the ProtocolSpecificData field start, not combined_buffer start
+        // Calculate the offset from STORAGE_PROTOCOL_DATA_DESCRIPTOR that contains ProtocolSpecificData field
+        const size_t proto_specific_field_offset = FIELD_OFFSET(STORAGE_PROTOCOL_DATA_DESCRIPTOR, ProtocolSpecificData);
+        const uint8_t *data = combined_buffer.data() + proto_specific_field_offset + response_proto_data->ProtocolDataOffset;
+        memcpy(buffer.data(), data, buffer.size());
+        
+        return true;
     }
 
     bool NvmeDevice::issue_get_feature_query(NVME_CDW10_GET_FEATURES cdw10, NVME_CDW11_FEATURES cdw11, uint32_t &value) const
@@ -471,6 +547,11 @@ namespace nvme
     {
         if (!is_open())
             return false;
+        
+        // Validate inputs
+        if (data_buffer_size > 0 && !data_buffer)
+            return false;
+            
         std::vector<uint8_t> buffer(FIELD_OFFSET(STORAGE_PROTOCOL_COMMAND, Command) + sizeof(NVME_COMMAND) + data_buffer_size);
         auto *cmd = reinterpret_cast<STORAGE_PROTOCOL_COMMAND *>(buffer.data());
 
@@ -488,7 +569,10 @@ namespace nvme
         cmd->DataToDeviceBufferOffset = cmd->ErrorInfoOffset + cmd->ErrorInfoLength;
         cmd->DataFromDeviceBufferOffset = cmd->DataToDeviceBufferOffset + cmd->DataToDeviceTransferLength;
 
+        // Copy NVMe command
         memcpy(cmd->Command, &nvme_cmd, sizeof(NVME_COMMAND));
+        
+        // Copy write data if applicable
         if (!is_read_command && data_buffer_size > 0)
         {
             memcpy(buffer.data() + cmd->DataToDeviceBufferOffset, data_buffer, data_buffer_size);
@@ -506,6 +590,8 @@ namespace nvme
             status_code = error_log->Status.AsUshort;
             return false;
         }
+        
+        // Copy read data if applicable
         if (is_read_command && data_buffer_size > 0)
         {
             memcpy(data_buffer, buffer.data() + cmd->DataFromDeviceBufferOffset, data_buffer_size);

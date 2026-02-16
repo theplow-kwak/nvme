@@ -180,7 +180,7 @@ void handle_disk_command(Command command, argparse::ArgParser &parser, const dev
     {
     case Command::IdCtrl:
     {
-        if (auto data = device->identify_controller_struct())
+        if (auto data = device->identify_controller())
         {
             nvme::print::print_nvme_identify_controller_data(*data);
         }
@@ -193,7 +193,7 @@ void handle_disk_command(Command command, argparse::ArgParser &parser, const dev
     case Command::IdNs:
     {
         auto nsid = parser.get<uint32_t>("nsid").value_or(1);
-        if (auto data = device->identify_namespace_struct(nsid))
+        if (auto data = device->identify_namespace(nsid))
         {
             nvme::print::print_nvme_identify_namespace_data(*data);
         }

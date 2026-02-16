@@ -79,8 +79,8 @@ namespace nvme
         bool identify_namespace_raw(uint32_t nsid, std::vector<uint8_t> &buffer) const;
 
         // Deserializing versions
-        std::optional<NVME_IDENTIFY_CONTROLLER_DATA> identify_controller_struct() const;
-        std::optional<NVME_IDENTIFY_NAMESPACE_DATA> identify_namespace_struct(uint32_t nsid) const;
+        std::optional<NVME_IDENTIFY_CONTROLLER_DATA> identify_controller() const;
+        std::optional<NVME_IDENTIFY_NAMESPACE_DATA> identify_namespace(uint32_t nsid) const;
 
         // User-friendly Get/Set Feature
         bool get_feature(uint8_t fid, uint8_t sel, uint32_t cdw11, uint32_t &value) const;

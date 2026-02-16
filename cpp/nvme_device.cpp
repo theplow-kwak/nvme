@@ -5,6 +5,7 @@
 #include <optional>
 #include <stdexcept>
 #include <system_error>
+#include <array>
 
 #include <SetupAPI.h>
 #include <ntddstor.h>
@@ -195,7 +196,7 @@ namespace nvme
         return issue_identify_query(NVME_IDENTIFY_CNS_SPECIFIC_NAMESPACE, nsid, buffer);
     }
 
-    std::optional<NVME_IDENTIFY_CONTROLLER_DATA> NvmeDevice::identify_controller_struct() const
+    std::optional<NVME_IDENTIFY_CONTROLLER_DATA> NvmeDevice::identify_controller() const
     {
         std::vector<uint8_t> buffer(sizeof(NVME_IDENTIFY_CONTROLLER_DATA));
         if (identify_controller_raw(buffer) && buffer.size() >= sizeof(NVME_IDENTIFY_CONTROLLER_DATA))
@@ -205,7 +206,7 @@ namespace nvme
         return std::nullopt;
     }
 
-    std::optional<NVME_IDENTIFY_NAMESPACE_DATA> NvmeDevice::identify_namespace_struct(uint32_t nsid) const
+    std::optional<NVME_IDENTIFY_NAMESPACE_DATA> NvmeDevice::identify_namespace(uint32_t nsid) const
     {
         std::vector<uint8_t> buffer(sizeof(NVME_IDENTIFY_NAMESPACE_DATA));
         if (identify_namespace_raw(nsid, buffer) && buffer.size() >= sizeof(NVME_IDENTIFY_NAMESPACE_DATA))

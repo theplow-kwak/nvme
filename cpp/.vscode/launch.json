@@ -17,11 +17,11 @@
             "preLaunchTask": "C/C++: cl.exe build active file"
         },
         {
-            "name": "C/C++: cmake debug luncher active file",
+            "name": "C/C++: cmake debug luncher nvme.exe",
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${fileDirname}\\build\\nvme.exe",
-            "args": ["list"],
+            "args": ["-b", "3", "id-ctrl"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

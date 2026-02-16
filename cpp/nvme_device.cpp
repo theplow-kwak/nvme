@@ -379,7 +379,8 @@ namespace nvme
         if (issue_query_property(nsid == 0 ? StorageAdapterProtocolSpecificProperty : StorageDeviceProtocolSpecificProperty, proto_data, output_buffer))
         {
             auto *desc = reinterpret_cast<STORAGE_PROTOCOL_DATA_DESCRIPTOR *>(output_buffer.data());
-            auto *data = reinterpret_cast<uint8_t *>(desc) + desc->ProtocolSpecificData.ProtocolDataOffset;
+            auto *proto_data_out = &desc->ProtocolSpecificData;
+            auto *data = reinterpret_cast<uint8_t *>(proto_data_out) + desc->ProtocolSpecificData.ProtocolDataOffset;
             memcpy(buffer.data(), data, buffer.size());
             return true;
         }
